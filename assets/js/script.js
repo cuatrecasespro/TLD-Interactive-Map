@@ -14,10 +14,13 @@ const elements = {
   home: document.querySelector("#home-button"), zoomControls: document.querySelector("#zoom-controls"),
   zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"),
   settingsButton: document.querySelector("#settings-button"), settings: document.querySelector("#settings-panel"),
-  difficultyButtons: [...document.querySelectorAll("[data-difficulty]")], transitionMenu: document.querySelector("#transition-menu")
+  difficultyButtons: [...document.querySelectorAll("[data-difficulty]")], transitionMenu: document.querySelector("#transition-menu"),
+  install: document.querySelector("#install-button"), installDialog: document.querySelector("#install-dialog"),
+  installInstructions: document.querySelector("#install-instructions"), installClose: document.querySelector("#install-close"), nativeInstall: document.querySelector("#native-install-button")
 };
 
 const state = { maps: null, mapId: null, difficulty: readDifficulty(), zoom: 1, panX: 0, panY: 0, requestId: 0, pointer: null, pointers: new Map(), pinch: null };
+let deferredInstallPrompt = null;
 
 function readDifficulty() {
   try {
@@ -37,6 +40,35 @@ function labelFor(id) {
 }
 
 function announce(message) { elements.status.textContent = message; }
+
+function isStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent) || window.matchMedia("(pointer: coarse)").matches;
+}
+
+function installInstructions() {
+  const userAgent = navigator.userAgent;
+  const isiOS = /iPad|iPhone|iPod/.test(userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (isiOS && /CriOS|FxiOS|EdgiOS/i.test(userAgent)) return "Use the Share button in the browser, then choose Add to Home Screen. iPhone and iPad install web apps through the system share sheet.";
+  if (isiOS) return "Tap the Share button, then scroll down and choose Add to Home Screen. Confirm Add to install it as an app.";
+  if (/SamsungBrowser/i.test(userAgent)) return "Open the browser menu, choose Add page to, then select Home screen.";
+  if (/Firefox/i.test(userAgent) && /Android/i.test(userAgent)) return "Open the browser menu and choose Add to Home screen.";
+  if (/Android/i.test(userAgent)) return "Open the browser menu (three dots), then choose Install app or Add to Home screen and confirm.";
+  return "Use your browser menu and choose Install app or Add to Home screen.";
+}
+
+function updateInstallButton() {
+  elements.install.hidden = !isMobileDevice() || isStandalone();
+}
+
+function openInstallDialog() {
+  elements.installInstructions.textContent = installInstructions();
+  elements.nativeInstall.hidden = !deferredInstallPrompt;
+  if (!elements.installDialog.open) elements.installDialog.showModal();
+}
 
 function routeFromHash() {
   const rawHash = location.hash.slice(1);
@@ -224,6 +256,17 @@ function bindEvents() {
   elements.zoomIn.addEventListener("click", () => setZoom(state.zoom + ZOOM_STEP));
   elements.zoomOut.addEventListener("click", () => setZoom(state.zoom - ZOOM_STEP));
   elements.zoomReset.addEventListener("click", resetView);
+  elements.install.addEventListener("click", openInstallDialog);
+  elements.installClose.addEventListener("click", () => elements.installDialog.close());
+  elements.nativeInstall.addEventListener("click", async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    elements.nativeInstall.hidden = true;
+    elements.installDialog.close();
+    updateInstallButton();
+  });
   elements.settingsButton.addEventListener("click", () => {
     const open = elements.settings.hidden;
     elements.settings.hidden = !open;
@@ -292,7 +335,17 @@ function bindEvents() {
     if (event.key === "0") { event.preventDefault(); resetView(); }
   });
   window.addEventListener("keydown", (event) => { if (event.key === "Escape") { hideTransitionMenu(); if (!elements.settings.hidden) elements.settingsButton.click(); else if (state.mapId) showHome(); } });
-  window.addEventListener("resize", () => { scaleHomeAreas(); if (state.mapId) applyTransform(); });
+  window.addEventListener("resize", () => { scaleHomeAreas(); updateInstallButton(); if (state.mapId) applyTransform(); });
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+  });
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    elements.installDialog.close();
+    updateInstallButton();
+    announce("TLD Map installed.");
+  });
   window.addEventListener("popstate", () => applyRoute());
   elements.homeImage.addEventListener("load", scaleHomeAreas);
 }
@@ -307,6 +360,7 @@ function applyRoute() {
 async function initialize() {
   updateDifficultyControls();
   bindEvents();
+  updateInstallButton();
   try {
     const response = await fetch("assets/js/maps.json");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);

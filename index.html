@@ -67,6 +67,7 @@
 
     <div class="controls" aria-label="Map controls">
       <button id="settings-button" type="button" aria-label="Open map settings" aria-expanded="false" aria-controls="settings-panel">Settings</button>
+      <button id="install-button" type="button" hidden>Install</button>
       <div class="zoom-controls" id="zoom-controls" hidden>
         <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
         <button id="zoom-reset" type="button" aria-label="Reset zoom">Reset</button>
@@ -89,6 +90,12 @@
     </aside>
 
     <div id="transition-menu" class="transition-menu" role="menu" hidden aria-label="Choose destination"></div>
+    <dialog id="install-dialog" aria-labelledby="install-title">
+      <button id="install-close" class="dialog-close" type="button" aria-label="Close install instructions">Close</button>
+      <h2 id="install-title">Install TLD Map</h2>
+      <p id="install-instructions"></p>
+      <button id="native-install-button" type="button" hidden>Install app</button>
+    </dialog>
     <p id="app-status" class="visually-hidden" aria-live="polite"></p>
     <script type="module" src="assets/js/script.js"></script>
   </body>
