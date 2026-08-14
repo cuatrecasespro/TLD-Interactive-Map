@@ -18,15 +18,15 @@
   </head>
   <body>
     <header class="app-header">
-      <div class="brand">
+      <button id="world-brand" class="header-control brand" type="button" aria-label="Return to world map">
         <span>FIELD MAPS</span>
-        <h1>The Long Dark</h1>
-      </div>
-      <div class="map-context" aria-live="polite">
+        <span class="brand-title">The Long Dark</span>
+      </button>
+      <button id="location-button" class="header-control map-context" type="button" aria-label="Choose a region" aria-expanded="false" aria-controls="regions-panel">
         <span>LOCATION</span>
-        <p id="map-title">Choose a region</p>
-      </div>
-      <span id="difficulty-status" class="difficulty-status">Pilgrim</span>
+        <span id="map-title">Choose a region</span>
+      </button>
+      <button id="difficulty-button" class="header-control difficulty-status" type="button" aria-label="Change map difficulty" aria-expanded="false" aria-controls="settings-panel">Pilgrim</button>
     </header>
 
     <main>

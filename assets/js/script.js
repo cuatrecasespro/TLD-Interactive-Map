@@ -10,7 +10,7 @@ const elements = {
   homeView: document.querySelector("#home-view"), mapView: document.querySelector("#map-view"),
   homeImage: document.querySelector("#start-map-image"), viewport: document.querySelector("#map-viewport"),
   image: document.querySelector("#region-image"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
-  retry: document.querySelector("#retry-button"), title: document.querySelector("#map-title"), difficultyStatus: document.querySelector("#difficulty-status"), status: document.querySelector("#app-status"),
+  retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-button"), status: document.querySelector("#app-status"),
   home: document.querySelector("#home-button"), zoomControls: document.querySelector("#zoom-controls"),
   zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"),
   regionsButton: document.querySelector("#regions-button"), regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"),
@@ -131,11 +131,21 @@ function renderRegionList(query = "") {
 function closeSettings() {
   elements.settings.hidden = true;
   elements.settingsButton.setAttribute("aria-expanded", "false");
+  elements.difficultyButton.setAttribute("aria-expanded", "false");
 }
 
 function closeRegions() {
   elements.regions.hidden = true;
   elements.regionsButton.setAttribute("aria-expanded", "false");
+  elements.locationButton.setAttribute("aria-expanded", "false");
+}
+
+function openSettings() {
+  closeRegions();
+  elements.settings.hidden = false;
+  elements.settingsButton.setAttribute("aria-expanded", "true");
+  elements.difficultyButton.setAttribute("aria-expanded", "true");
+  elements.settingsClose.focus();
 }
 
 function toggleRegions() {
@@ -144,6 +154,7 @@ function toggleRegions() {
     closeSettings();
     elements.regions.hidden = false;
     elements.regionsButton.setAttribute("aria-expanded", "true");
+    elements.locationButton.setAttribute("aria-expanded", "true");
     elements.regionSearch.focus();
   } else {
     closeRegions();
@@ -231,6 +242,8 @@ function showHome({ route = "push" } = {}) {
   state.mapId = null;
   state.requestId += 1;
   hideTransitionMenu();
+  closeRegions();
+  closeSettings();
   elements.mapView.hidden = true;
   elements.homeView.hidden = false;
   elements.home.hidden = true;
@@ -311,6 +324,9 @@ function bindEvents() {
   document.querySelectorAll("area[data-map]").forEach((area) => area.addEventListener("click", (event) => { event.preventDefault(); navigate(area.dataset.map); }));
   elements.difficultyButtons.forEach((button) => button.addEventListener("click", () => setDifficulty(button.dataset.difficulty)));
   elements.home.addEventListener("click", () => showHome());
+  elements.worldBrand.addEventListener("click", () => showHome());
+  elements.locationButton.addEventListener("click", toggleRegions);
+  elements.difficultyButton.addEventListener("click", openSettings);
   elements.retry.addEventListener("click", () => state.mapId && navigate(state.mapId, { route: false }));
   elements.zoomIn.addEventListener("click", () => setZoom(state.zoom + ZOOM_STEP));
   elements.zoomOut.addEventListener("click", () => setZoom(state.zoom - ZOOM_STEP));
@@ -332,10 +348,7 @@ function bindEvents() {
   elements.settingsButton.addEventListener("click", () => {
     const open = elements.settings.hidden;
     if (open) {
-      closeRegions();
-      elements.settings.hidden = false;
-      elements.settingsButton.setAttribute("aria-expanded", "true");
-      elements.settingsClose.focus();
+      openSettings();
     } else {
       closeSettings();
     }
