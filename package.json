@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check assets/js/script.js && node --check assets/js/transitions.js && node --check assets/js/update-maps.js && node scripts/validate-data.js",
+    "check": "node --check assets/js/script.js && node --check assets/js/transitions.js && node --check assets/js/update-maps.js && node --check service-worker.js && node scripts/validate-data.js",
     "validate-data": "node scripts/validate-data.js",
     "update-maps": "node assets/js/update-maps.js"
   }

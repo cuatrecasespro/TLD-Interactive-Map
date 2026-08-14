@@ -5,8 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Interactive maps for The Long Dark." />
     <meta name="theme-color" content="#171a1d" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="TLD Map" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; connect-src 'self'; form-action 'none'; img-src 'self' https://images.steamusercontent.com; script-src 'self'; style-src 'self' 'unsafe-inline'" />
     <title>The Long Dark Interactive Map</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="assets/img/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="assets/img/icon.svg" />
     <link rel="stylesheet" href="assets/css/styles.css" />
   </head>
   <body>
@@ -57,10 +64,6 @@
         <p id="map-help" class="visually-hidden">Drag to pan. Use the mouse wheel or pinch to zoom. Press plus or minus to zoom, zero to reset, and Escape to return to the world map.</p>
       </section>
     </main>
-
-    <footer class="attribution">
-      Modernized, responsive adaptation of the original <a href="https://elektronixx.github.io/TLD-Interactive-Map/" rel="noopener noreferrer" target="_blank">TLD Interactive Map by Elektronixx</a>.
-    </footer>
 
     <div class="controls" aria-label="Map controls">
       <button id="settings-button" type="button" aria-label="Open map settings" aria-expanded="false" aria-controls="settings-panel">Settings</button>

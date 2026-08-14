@@ -1,0 +1,18 @@
+{
+  "name": "The Long Dark Interactive Map",
+  "short_name": "TLD Map",
+  "description": "A responsive interactive map viewer for The Long Dark.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#171a1d",
+  "theme_color": "#171a1d",
+  "icons": [
+    {
+      "src": "assets/img/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

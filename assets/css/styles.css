@@ -13,12 +13,10 @@ button { border: 1px solid #c8d0d1; border-radius: .4rem; background: #20272b; c
 button:hover { background: #344046; }
 button:focus-visible, a:focus-visible { outline: 3px solid #e8b85d; outline-offset: 3px; }
 
-.app-header { position: fixed; inset: 0 0 auto; z-index: 3; padding: .8rem 5.5rem; pointer-events: none; text-align: center; text-shadow: 0 1px 3px #000; }
+.app-header { position: fixed; inset: 0 0 auto; z-index: 3; padding: max(.8rem, env(safe-area-inset-top)) 5.5rem .8rem; pointer-events: none; text-align: center; text-shadow: 0 1px 3px #000; }
 .app-header h1, .app-header p { margin: 0; }
 .app-header h1 { font-size: clamp(1rem, 2vw, 1.4rem); }
 .app-header p { font-size: .9rem; }
-.attribution { position: fixed; z-index: 4; right: 1rem; bottom: 1rem; max-width: min(38rem, calc(100vw - 12rem)); color: #f6f1e7; font-size: .75rem; text-align: right; text-shadow: 0 1px 3px #000; }
-.attribution a { color: #f6d487; }
 main, #home-view, #map-view, #map-viewport { width: 100%; height: 100dvh; }
 #home-view { display: grid; place-items: center; overflow: auto; }
 #start-map-image { display: block; max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; }
@@ -27,7 +25,7 @@ main, #home-view, #map-view, #map-viewport { width: 100%; height: 100dvh; }
 #region-image { display: block; max-width: 100%; max-height: 100%; transform-origin: center; user-select: none; pointer-events: none; }
 #map-viewport.is-ready #region-image { will-change: transform; }
 
-.controls { position: fixed; z-index: 5; bottom: 1rem; left: 1rem; display: flex; gap: .5rem; align-items: end; }
+.controls { position: fixed; z-index: 5; bottom: max(1rem, env(safe-area-inset-bottom)); left: max(1rem, env(safe-area-inset-left)); display: flex; gap: .5rem; align-items: end; }
 .zoom-controls { display: flex; gap: .35rem; }
 .settings-panel, .transition-menu { position: fixed; z-index: 10; background: #20272b; border: 1px solid #c8d0d1; border-radius: .5rem; box-shadow: 0 12px 30px rgb(0 0 0 / .45); }
 .settings-panel { left: 1rem; bottom: 4.4rem; width: min(31rem, calc(100vw - 2rem)); max-height: calc(100dvh - 6rem); overflow: auto; padding: 1rem; }
@@ -43,11 +41,10 @@ main, #home-view, #map-view, #map-viewport { width: 100%; height: 100dvh; }
 
 @media (max-width: 600px) {
   .app-header { padding-inline: 4.5rem; }
-  .controls { bottom: .75rem; left: .75rem; gap: .35rem; }
+  .controls { bottom: max(.75rem, env(safe-area-inset-bottom)); left: max(.75rem, env(safe-area-inset-left)); gap: .35rem; max-width: calc(100vw - 1.5rem - env(safe-area-inset-left) - env(safe-area-inset-right)); }
   .zoom-controls { gap: .25rem; }
   .zoom-controls button { padding-inline: .55rem; }
   .settings-panel { left: .75rem; bottom: 4.1rem; width: calc(100vw - 1.5rem); }
-  .attribution { right: .75rem; bottom: 4.2rem; max-width: calc(100vw - 1.5rem); }
 }
 
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
