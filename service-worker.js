@@ -1,4 +1,4 @@
-const CACHE_NAME = "tld-map-v1";
+const CACHE_NAME = "tld-map-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -9,7 +9,6 @@ const APP_SHELL = [
   "./assets/js/maps.json",
   "./assets/img/homemap.png",
   "./assets/img/home.png",
-  "./assets/img/paper-texture.jpg",
   "./assets/img/icon.svg"
 ];
 
