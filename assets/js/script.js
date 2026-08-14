@@ -10,10 +10,11 @@ const elements = {
   homeView: document.querySelector("#home-view"), mapView: document.querySelector("#map-view"),
   homeImage: document.querySelector("#start-map-image"), viewport: document.querySelector("#map-viewport"),
   image: document.querySelector("#region-image"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
-  retry: document.querySelector("#retry-button"), title: document.querySelector("#map-title"), status: document.querySelector("#app-status"),
+  retry: document.querySelector("#retry-button"), title: document.querySelector("#map-title"), difficultyStatus: document.querySelector("#difficulty-status"), status: document.querySelector("#app-status"),
   home: document.querySelector("#home-button"), zoomControls: document.querySelector("#zoom-controls"),
   zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"),
-  settingsButton: document.querySelector("#settings-button"), settings: document.querySelector("#settings-panel"),
+  regionsButton: document.querySelector("#regions-button"), regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"),
+  settingsButton: document.querySelector("#settings-button"), settings: document.querySelector("#settings-panel"), settingsClose: document.querySelector("#settings-close"),
   difficultyButtons: [...document.querySelectorAll("[data-difficulty]")], transitionMenu: document.querySelector("#transition-menu"),
   install: document.querySelector("#install-button"), installDialog: document.querySelector("#install-dialog"),
   installInstructions: document.querySelector("#install-instructions"), installClose: document.querySelector("#install-close"), nativeInstall: document.querySelector("#native-install-button")
@@ -40,6 +41,10 @@ function labelFor(id) {
 }
 
 function announce(message) { elements.status.textContent = message; }
+
+function difficultyLabel() {
+  return state.difficulty === "pilgrim" ? "Pilgrim" : "Interloper";
+}
 
 function isStandalone() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
@@ -91,6 +96,58 @@ function updateDifficultyControls() {
   elements.difficultyButtons.forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.difficulty === state.difficulty));
   });
+  elements.difficultyStatus.textContent = difficultyLabel();
+}
+
+function updateRegionSelection() {
+  elements.regionList.querySelectorAll("button[data-map]").forEach((button) => {
+    button.setAttribute("aria-current", String(button.dataset.map === state.mapId));
+  });
+}
+
+function renderRegionList(query = "") {
+  const normalizedQuery = query.trim().toLowerCase();
+  const regionIds = [...new Set([...document.querySelectorAll("area[data-map]")].map((area) => area.dataset.map))]
+    .filter((id) => state.maps[id])
+    .sort((first, second) => labelFor(first).localeCompare(labelFor(second)));
+  elements.regionList.replaceChildren(...regionIds
+    .filter((id) => labelFor(id).toLowerCase().includes(normalizedQuery))
+    .map((id) => {
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.map = id;
+      button.textContent = labelFor(id);
+      button.setAttribute("aria-current", String(id === state.mapId));
+      button.addEventListener("click", () => {
+        closeRegions();
+        navigate(id);
+      });
+      item.append(button);
+      return item;
+    }));
+}
+
+function closeSettings() {
+  elements.settings.hidden = true;
+  elements.settingsButton.setAttribute("aria-expanded", "false");
+}
+
+function closeRegions() {
+  elements.regions.hidden = true;
+  elements.regionsButton.setAttribute("aria-expanded", "false");
+}
+
+function toggleRegions() {
+  const open = elements.regions.hidden;
+  if (open) {
+    closeSettings();
+    elements.regions.hidden = false;
+    elements.regionsButton.setAttribute("aria-expanded", "true");
+    elements.regionSearch.focus();
+  } else {
+    closeRegions();
+  }
 }
 
 function resetView() {
@@ -179,6 +236,7 @@ function showHome({ route = "push" } = {}) {
   elements.home.hidden = true;
   elements.zoomControls.hidden = true;
   elements.title.textContent = "Choose a region";
+  updateRegionSelection();
   if (route) writeRoute(route);
 }
 
@@ -222,7 +280,8 @@ function navigate(mapId, { route = "push" } = {}) {
   elements.mapView.hidden = false;
   elements.home.hidden = false;
   elements.zoomControls.hidden = false;
-  elements.title.textContent = `${labelFor(mapId)} · ${state.difficulty === "pilgrim" ? "Pilgrim / Voyageur / Stalker" : "Interloper / Misery"}`;
+  elements.title.textContent = labelFor(mapId);
+  updateRegionSelection();
   if (route) writeRoute(route);
   loadImage(url, mapId);
 }
@@ -256,6 +315,9 @@ function bindEvents() {
   elements.zoomIn.addEventListener("click", () => setZoom(state.zoom + ZOOM_STEP));
   elements.zoomOut.addEventListener("click", () => setZoom(state.zoom - ZOOM_STEP));
   elements.zoomReset.addEventListener("click", resetView);
+  elements.regionsButton.addEventListener("click", toggleRegions);
+  elements.regionsClose.addEventListener("click", closeRegions);
+  elements.regionSearch.addEventListener("input", () => renderRegionList(elements.regionSearch.value));
   elements.install.addEventListener("click", openInstallDialog);
   elements.installClose.addEventListener("click", () => elements.installDialog.close());
   elements.nativeInstall.addEventListener("click", async () => {
@@ -269,14 +331,22 @@ function bindEvents() {
   });
   elements.settingsButton.addEventListener("click", () => {
     const open = elements.settings.hidden;
-    elements.settings.hidden = !open;
-    elements.settingsButton.setAttribute("aria-expanded", String(open));
-    if (open) elements.settings.querySelector("button").focus();
+    if (open) {
+      closeRegions();
+      elements.settings.hidden = false;
+      elements.settingsButton.setAttribute("aria-expanded", "true");
+      elements.settingsClose.focus();
+    } else {
+      closeSettings();
+    }
   });
+  elements.settingsClose.addEventListener("click", closeSettings);
   document.addEventListener("pointerdown", (event) => {
     if (!elements.settings.hidden && !elements.settings.contains(event.target) && event.target !== elements.settingsButton) {
-      elements.settings.hidden = true;
-      elements.settingsButton.setAttribute("aria-expanded", "false");
+      closeSettings();
+    }
+    if (!elements.regions.hidden && !elements.regions.contains(event.target) && event.target !== elements.regionsButton) {
+      closeRegions();
     }
     if (!elements.transitionMenu.hidden && !elements.transitionMenu.contains(event.target)) hideTransitionMenu();
   });
@@ -334,7 +404,13 @@ function bindEvents() {
     if (event.key === "-") { event.preventDefault(); setZoom(state.zoom - ZOOM_STEP); }
     if (event.key === "0") { event.preventDefault(); resetView(); }
   });
-  window.addEventListener("keydown", (event) => { if (event.key === "Escape") { hideTransitionMenu(); if (!elements.settings.hidden) elements.settingsButton.click(); else if (state.mapId) showHome(); } });
+  window.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    hideTransitionMenu();
+    if (!elements.regions.hidden) closeRegions();
+    else if (!elements.settings.hidden) closeSettings();
+    else if (state.mapId) showHome();
+  });
   window.addEventListener("resize", () => { scaleHomeAreas(); updateInstallButton(); if (state.mapId) applyTransform(); });
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
@@ -365,6 +441,7 @@ async function initialize() {
     const response = await fetch("assets/js/maps.json");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     state.maps = await response.json();
+    renderRegionList();
     applyRoute();
   } catch (error) {
     elements.title.textContent = "Map data is unavailable";

@@ -18,8 +18,15 @@
   </head>
   <body>
     <header class="app-header">
-      <h1>The Long Dark Interactive Map</h1>
-      <p id="map-title" aria-live="polite">Choose a region</p>
+      <div class="brand">
+        <span>FIELD MAPS</span>
+        <h1>The Long Dark</h1>
+      </div>
+      <div class="map-context" aria-live="polite">
+        <span>LOCATION</span>
+        <p id="map-title">Choose a region</p>
+      </div>
+      <span id="difficulty-status" class="difficulty-status">Pilgrim</span>
     </header>
 
     <main>
@@ -65,28 +72,45 @@
       </section>
     </main>
 
-    <div class="controls" aria-label="Map controls">
-      <button id="settings-button" type="button" aria-label="Open map settings" aria-expanded="false" aria-controls="settings-panel">Settings</button>
-      <button id="install-button" type="button" hidden>Install</button>
+    <nav class="controls" aria-label="Map controls">
+      <button id="regions-button" type="button" aria-expanded="false" aria-controls="regions-panel">Regions</button>
+      <button id="home-button" type="button" aria-label="Return to world map" hidden>World</button>
       <div class="zoom-controls" id="zoom-controls" hidden>
+        <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+        <button id="zoom-reset" type="button" aria-label="Reset zoom">1:1</button>
         <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
-        <button id="zoom-reset" type="button" aria-label="Reset zoom">Reset</button>
-        <button id="zoom-out" type="button" aria-label="Zoom out">-</button>
       </div>
-      <button id="home-button" type="button" aria-label="Return to world map" hidden>Home</button>
-    </div>
+      <button id="settings-button" type="button" aria-expanded="false" aria-controls="settings-panel">Settings</button>
+      <button id="install-button" type="button" hidden>Install</button>
+    </nav>
 
-    <aside id="settings-panel" class="settings-panel" hidden aria-label="Map settings">
-      <h2>Difficulty</h2>
+    <aside id="regions-panel" class="sheet" hidden aria-label="Choose a region">
+      <div class="sheet-heading">
+        <div><span>EXPEDITION INDEX</span><h2>Regions</h2></div>
+        <button id="regions-close" class="sheet-close" type="button">Close</button>
+      </div>
+      <label class="region-search-label" for="region-search">Find a region</label>
+      <input id="region-search" type="search" placeholder="Search regions" autocomplete="off" />
+      <ul id="region-list" class="region-list"></ul>
+    </aside>
+
+    <aside id="settings-panel" class="sheet" hidden aria-label="Map settings">
+      <div class="sheet-heading">
+        <div><span>FIELD SETTINGS</span><h2>Map mode</h2></div>
+        <button id="settings-close" class="sheet-close" type="button">Close</button>
+      </div>
+      <p class="sheet-intro">Choose the map set that matches your current run.</p>
       <div class="difficulty-buttons" role="group" aria-label="Map difficulty">
         <button type="button" data-difficulty="pilgrim" aria-pressed="true">Pilgrim / Voyageur / Stalker</button>
         <button type="button" data-difficulty="interloper" aria-pressed="false">Interloper / Misery</button>
       </div>
-      <h2>Credits</h2>
-      <p>This independent adaptation is based on the original interactive map created by <a href="https://elektronixx.github.io/TLD-Interactive-Map/" rel="noopener noreferrer" target="_blank">Elektronixx</a>.</p>
-      <p>The map images and artwork remain the work of Steam community creators. This adaptation does not claim ownership of them.</p>
-      <p>Updated Region Maps material: <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3255435617" rel="noopener noreferrer" target="_blank">Updated Region Maps [2024]</a> by <a href="https://steamcommunity.com/profiles/76561198212232496" rel="noopener noreferrer" target="_blank">HokuOwl</a>.</p>
-      <p>Tales from the Far Territory material: <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=2899955301" rel="noopener noreferrer" target="_blank">map locations guide</a> by <a href="https://steamcommunity.com/profiles/76561198054890338" rel="noopener noreferrer" target="_blank">Krueger</a>.</p>
+      <details class="credits">
+        <summary>Sources and credits</summary>
+        <p>This independent adaptation is based on the original interactive map created by <a href="https://elektronixx.github.io/TLD-Interactive-Map/" rel="noopener noreferrer" target="_blank">Elektronixx</a>.</p>
+        <p>The map images and artwork remain the work of Steam community creators. This adaptation does not claim ownership of them.</p>
+        <p>Updated Region Maps material: <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3255435617" rel="noopener noreferrer" target="_blank">Updated Region Maps [2024]</a> by <a href="https://steamcommunity.com/profiles/76561198212232496" rel="noopener noreferrer" target="_blank">HokuOwl</a>.</p>
+        <p>Tales from the Far Territory material: <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=2899955301" rel="noopener noreferrer" target="_blank">map locations guide</a> by <a href="https://steamcommunity.com/profiles/76561198054890338" rel="noopener noreferrer" target="_blank">Krueger</a>.</p>
+      </details>
     </aside>
 
     <div id="transition-menu" class="transition-menu" role="menu" hidden aria-label="Choose destination"></div>
