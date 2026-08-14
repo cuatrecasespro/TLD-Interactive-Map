@@ -37,10 +37,10 @@ a { color: var(--accent-soft); }
 .difficulty-status { justify-self: end; border: 1px solid rgb(213 155 72 / .65); padding: .32rem .5rem; color: var(--accent-soft); font-size: .63rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 main, #home-view, #map-view, #map-viewport { width: 100%; height: 100dvh; }
 #home-view { display: grid; place-items: center; overflow: auto; background: #101515; }
-#start-map-image { display: block; max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; }
+#start-map-image { display: block; max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; }
 #map-viewport { position: relative; display: grid; place-items: center; overflow: hidden; background: #0f1413; cursor: grab; touch-action: none; }
 #map-viewport.is-dragging { cursor: grabbing; }
-#region-image { display: block; max-width: 100%; max-height: 100%; transform-origin: center; user-select: none; pointer-events: none; }
+#region-image { display: block; max-width: 100%; max-height: 100%; transform-origin: center; user-select: none; pointer-events: none; -webkit-user-drag: none; }
 #map-viewport.is-ready #region-image { will-change: transform; }
 
 .controls { position: fixed; z-index: 5; right: max(1rem, env(safe-area-inset-right)); bottom: max(1rem, env(safe-area-inset-bottom)); left: max(1rem, env(safe-area-inset-left)); display: flex; justify-content: center; gap: .45rem; pointer-events: none; }

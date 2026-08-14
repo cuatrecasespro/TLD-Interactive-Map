@@ -396,6 +396,7 @@ function bindEvents() {
   elements.viewport.addEventListener("wheel", (event) => { event.preventDefault(); setZoom(state.zoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), event.clientX, event.clientY); }, { passive: false });
   elements.viewport.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 && event.pointerType === "mouse") return;
+    event.preventDefault();
     hideTransitionMenu();
     elements.viewport.setPointerCapture(event.pointerId);
     state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -442,6 +443,8 @@ function bindEvents() {
     if (!pointer.moved) activateTransition(event.clientX, event.clientY);
   });
   elements.viewport.addEventListener("pointercancel", (event) => { state.pointers.delete(event.pointerId); state.pointer = null; state.pinch = null; elements.viewport.classList.remove("is-dragging"); });
+  elements.viewport.addEventListener("dragstart", (event) => event.preventDefault());
+  elements.image.addEventListener("dragstart", (event) => event.preventDefault());
   elements.viewport.addEventListener("keydown", (event) => {
     if (event.key === "+" || event.key === "=") { event.preventDefault(); setZoom(state.zoom + ZOOM_STEP); }
     if (event.key === "-") { event.preventDefault(); setZoom(state.zoom - ZOOM_STEP); }
