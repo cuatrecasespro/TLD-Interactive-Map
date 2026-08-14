@@ -16,7 +16,7 @@ const PAN_STEP = 80;
 
 const elements = {
   homeView: document.querySelector("#home-view"), mapView: document.querySelector("#map-view"),
-  homeImage: document.querySelector("#start-map-image"), viewport: document.querySelector("#map-viewport"),
+  homeImage: document.querySelector("#start-map-image"), homeHotspots: document.querySelector("#home-map-hotspots"), viewport: document.querySelector("#map-viewport"),
   image: document.querySelector("#region-image"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
   retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-status"), status: document.querySelector("#app-status"),
   zoomControls: document.querySelector("#zoom-controls"),
@@ -247,6 +247,24 @@ function fitHomeImage() {
   );
   elements.homeImage.style.width = `${Math.floor(elements.homeImage.naturalWidth * scale)}px`;
   elements.homeImage.style.height = `${Math.floor(elements.homeImage.naturalHeight * scale)}px`;
+  syncHomeHotspots();
+}
+
+function syncHomeHotspots() {
+  const image = elements.homeImage;
+  if (!image.naturalWidth) return;
+  elements.homeHotspots.style.width = `${image.clientWidth}px`;
+  elements.homeHotspots.style.height = `${image.clientHeight}px`;
+  elements.homeHotspots.replaceChildren(...[...document.querySelectorAll("area[data-map]")].map((area) => {
+    const [left, top, right, bottom] = (area.dataset.originalCoords ?? area.getAttribute("coords")).split(",").map(Number);
+    const hotspot = document.createElement("span");
+    hotspot.className = "home-map-hotspot";
+    hotspot.style.left = `${left / image.naturalWidth * 100}%`;
+    hotspot.style.top = `${top / image.naturalHeight * 100}%`;
+    hotspot.style.width = `${(right - left) / image.naturalWidth * 100}%`;
+    hotspot.style.height = `${(bottom - top) / image.naturalHeight * 100}%`;
+    return hotspot;
+  }));
 }
 
 function clampHomePan() {
@@ -260,7 +278,9 @@ function clampHomePan() {
 
 function applyHomeTransform() {
   clampHomePan();
-  elements.homeImage.style.transform = `translate(${state.homePanX}px, ${state.homePanY}px) scale(${state.homeZoom})`;
+  const transform = `translate(${state.homePanX}px, ${state.homePanY}px) scale(${state.homeZoom})`;
+  elements.homeImage.style.transform = transform;
+  elements.homeHotspots.style.transform = `translate(-50%, -50%) ${transform}`;
 }
 
 function resetHomeView() {
