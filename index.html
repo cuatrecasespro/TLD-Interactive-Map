@@ -88,11 +88,13 @@
       </div>
       <button id="install-button" type="button" hidden>Install</button>
     </nav>
-    <div id="hotspot-toggle" class="hotspot-toggle" role="group" aria-label="Clickable region hints">
-      <span>Map hints</span>
-      <button type="button" data-hotspot-style="green" aria-pressed="false">Green</button>
-      <button type="button" data-hotspot-style="white" aria-pressed="true">White</button>
-      <button type="button" data-hotspot-style="none" aria-pressed="false">None</button>
+    <div id="hotspot-control" class="hotspot-control">
+      <button id="hotspot-toggle" type="button" aria-expanded="false" aria-controls="hotspot-options">Map hints</button>
+      <div id="hotspot-options" class="hotspot-options" role="group" aria-label="Clickable region hints" hidden>
+        <button type="button" data-hotspot-style="green" aria-pressed="false">Green</button>
+        <button type="button" data-hotspot-style="white" aria-pressed="false">White</button>
+        <button type="button" data-hotspot-style="none" aria-pressed="true">None</button>
+      </div>
     </div>
 
     <aside id="regions-panel" class="sheet" hidden aria-label="Choose a region">

@@ -21,7 +21,7 @@ const elements = {
   image: document.querySelector("#region-image"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
   retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-status"), status: document.querySelector("#app-status"),
   zoomControls: document.querySelector("#zoom-controls"),
-  zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"), hotspotToggle: document.querySelector("#hotspot-toggle"), hotspotButtons: [...document.querySelectorAll("[data-hotspot-style]")],
+  zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"), hotspotControl: document.querySelector("#hotspot-control"), hotspotToggle: document.querySelector("#hotspot-toggle"), hotspotOptions: document.querySelector("#hotspot-options"), hotspotButtons: [...document.querySelectorAll("[data-hotspot-style]")],
   regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), worldRegion: document.querySelector("#world-region-button"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"),
   creditsButton: document.querySelector("#credits-button"), credits: document.querySelector("#credits-panel"), creditsClose: document.querySelector("#credits-close"),
   difficultyPanel: document.querySelector("#difficulty-panel"), difficultyClose: document.querySelector("#difficulty-close"),
@@ -54,8 +54,19 @@ function readHotspotStyle() {
   try {
     const style = localStorage.getItem(HOTSPOT_STORAGE_KEY);
     if (["green", "white", "none"].includes(style)) return style;
-    return localStorage.getItem("tld-map:home-hotspots") === "off" ? "none" : "white";
-  } catch { return "white"; }
+    return localStorage.getItem("tld-map:home-hotspots") === "on" ? "white" : "none";
+  } catch { return "none"; }
+}
+
+function closeHotspotOptions() {
+  elements.hotspotOptions.hidden = true;
+  elements.hotspotToggle.setAttribute("aria-expanded", "false");
+}
+
+function toggleHotspotOptions() {
+  const open = elements.hotspotOptions.hidden;
+  elements.hotspotOptions.hidden = !open;
+  elements.hotspotToggle.setAttribute("aria-expanded", String(open));
 }
 
 function setHomeHotspotStyle(style, { announceChange = false } = {}) {
@@ -64,6 +75,7 @@ function setHomeHotspotStyle(style, { announceChange = false } = {}) {
   elements.homeHotspots.hidden = style === "none";
   elements.homeHotspots.dataset.style = style;
   elements.hotspotButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.hotspotStyle === style)));
+  closeHotspotOptions();
   try { localStorage.setItem(HOTSPOT_STORAGE_KEY, style); } catch { /* Storage is optional. */ }
   if (announceChange) announce(`Clickable region hints set to ${style}.`);
 }
@@ -410,7 +422,7 @@ function showHome({ route = "push" } = {}) {
   elements.mapView.hidden = true;
   elements.homeView.hidden = false;
   elements.zoomControls.hidden = false;
-  elements.hotspotToggle.hidden = false;
+  elements.hotspotControl.hidden = false;
   fitHomeImage();
   resetHomeView();
   elements.title.textContent = "Choose a region";
@@ -459,7 +471,8 @@ function navigate(mapId, { route = "push" } = {}) {
   elements.homeView.hidden = true;
   elements.mapView.hidden = false;
   elements.zoomControls.hidden = false;
-  elements.hotspotToggle.hidden = true;
+  elements.hotspotControl.hidden = true;
+  closeHotspotOptions();
   elements.title.textContent = labelFor(mapId);
   elements.locationButton.setAttribute("aria-label", `Choose a region, currently ${labelFor(mapId)}`);
   updateRegionSelection();
@@ -499,6 +512,7 @@ function bindEvents() {
   elements.zoomIn.addEventListener("click", () => state.mapId ? setZoom(state.zoom + ZOOM_STEP) : setHomeZoom(state.homeZoom + ZOOM_STEP));
   elements.zoomOut.addEventListener("click", () => state.mapId ? setZoom(state.zoom - ZOOM_STEP) : setHomeZoom(state.homeZoom - ZOOM_STEP));
   elements.zoomReset.addEventListener("click", () => state.mapId ? resetView() : resetHomeView());
+  elements.hotspotToggle.addEventListener("click", toggleHotspotOptions);
   elements.hotspotButtons.forEach((button) => button.addEventListener("click", () => setHomeHotspotStyle(button.dataset.hotspotStyle, { announceChange: true })));
   elements.regionsClose.addEventListener("click", closeRegions);
   elements.regionSearch.addEventListener("input", () => renderRegionList(elements.regionSearch.value));
@@ -529,6 +543,7 @@ function bindEvents() {
     if (!elements.regions.hidden && !elements.regions.contains(event.target) && event.target !== elements.locationButton) {
       closeRegions();
     }
+    if (!elements.hotspotOptions.hidden && !elements.hotspotControl.contains(event.target)) closeHotspotOptions();
     if (!elements.transitionMenu.hidden && !elements.transitionMenu.contains(event.target)) hideTransitionMenu();
   });
   elements.homeView.addEventListener("wheel", (event) => {
@@ -676,6 +691,7 @@ function bindEvents() {
     if (!elements.regions.hidden) closeRegions();
     else if (!elements.difficultyPanel.hidden) closeDifficulty();
     else if (!elements.credits.hidden) closeCredits();
+    else if (!elements.hotspotOptions.hidden) closeHotspotOptions();
     else if (state.mapId) showHome();
   });
   window.addEventListener("resize", () => {
