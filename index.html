@@ -3,333 +3,84 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="Interactive map for The Long Dark game, find locations, resources, and more."
-    />
-    <link
-      rel="icon"
-      type="image/png"
-      href="https://styles.redditmedia.com/t5_2ygr3/styles/communityIcon_otm5gkx4px121.jpg"
-    />
-    <title>Interactive Map Viewer</title>
-    <!-- Link to external CSS -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
-    />
+    <meta name="description" content="Interactive maps for The Long Dark." />
+    <meta name="theme-color" content="#171a1d" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; connect-src 'self'; form-action 'none'; img-src 'self' https://images.steamusercontent.com; script-src 'self'; style-src 'self' 'unsafe-inline'" />
+    <title>The Long Dark Interactive Map</title>
     <link rel="stylesheet" href="assets/css/styles.css" />
   </head>
   <body>
-    <div id="cog-icon" class="cog-icon">
-      <i class="fas fa-cog"></i>
-    </div>
-    <div id="settings-popup" class="settings-popup">
-      <div class="popup-content">
-        <div class="difficultys">
-          <h2>Difficulty Settings</h2>
-          <div class="difficulty-buttons">
-            <button
-              id="pilgrim"
-              class="active"
-              onclick="setCategory('pilgrim')"
-            >
-              Pilgrim / Voyageur / Stalker
-            </button>
-            <button id="interloper" onclick="setCategory('interloper')">
-              Interloper / Misery
-            </button>
+    <header class="app-header">
+      <h1>The Long Dark Interactive Map</h1>
+      <p id="map-title" aria-live="polite">Choose a region</p>
+    </header>
+
+    <main>
+      <section id="home-view" aria-label="World map">
+        <img id="start-map-image" src="assets/img/homemap.png" alt="World map of Great Bear Island. Choose a labelled region below." usemap="#map-links" draggable="false" />
+        <map name="map-links">
+          <area alt="Forlorn Muskeg" href="#map=forlorn-muskeg" coords="1747,1332,2046,1394" shape="rect" data-map="forlorn-muskeg" />
+          <area alt="Broken Railroad" href="#map=broken-railroad" coords="1312,1266,1628,1329" shape="rect" data-map="broken-railroad" />
+          <area alt="Mountain Town" href="#map=mountain-town" coords="1587,795,1876,855" shape="rect" data-map="mountain-town" />
+          <area alt="Hushed River Valley" href="#map=hushed-river-valley" coords="1405,366,1769,429" shape="rect" data-map="hushed-river-valley" />
+          <area alt="Keeper's Pass" href="#map=keepers-pass" coords="2222,567,2485,643" shape="rect" data-map="keepers-pass" />
+          <area alt="Bleak Inlet" href="#map=bleak-inlet" coords="2358,1570,2585,1629" shape="rect" data-map="bleak-inlet" />
+          <area alt="The Ravine" href="#map=ravine" coords="2459,1212,2662,1294" shape="rect" data-map="ravine" />
+          <area alt="Winding River and Carter Hydro Dam" href="#map=winding-river-%26-carter-hydro-dam" coords="2459,1132,2715,1192" shape="rect" data-map="winding-river-&-carter-hydro-dam" />
+          <area alt="Pleasant Valley" href="#map=pleasant-valley" coords="2735,735,3035,798" shape="rect" data-map="pleasant-valley" />
+          <area alt="Timberwolf Mountain" href="#map=timberwolf-mountain" coords="2938,434,3313,493" shape="rect" data-map="timberwolf-mountain" />
+          <area alt="Ash Canyon" href="#map=ash-canyon" coords="3425,300,3650,360" shape="rect" data-map="ash-canyon" />
+          <area alt="Coastal Highway" href="#map=coastal-highway" coords="2897,1352,3206,1413" shape="rect" data-map="coastal-highway" />
+          <area alt="Crumbling Highway" href="#map=crumbling-highway" coords="3039,1805,3375,1882" shape="rect" data-map="crumbling-highway" />
+          <area alt="Desolation Point" href="#map=desolation-point" coords="3225,1548,3540,1611" shape="rect" data-map="desolation-point" />
+          <area alt="Mystery Lake" href="#map=mystery-lake" coords="2022,1005,2276,1068" shape="rect" data-map="mystery-lake" />
+          <area alt="Blackrock" href="#map=blackrock" coords="2617,205,2828,265" shape="rect" data-map="blackrock" />
+          <area alt="Far Range Branch Line" href="#map=far-range-branch-line" coords="741,1591,1127,1667" shape="rect" data-map="far-range-branch-line" />
+          <area alt="Transfer Pass" href="#map=transfer-pass" coords="655,1294,924,1356" shape="rect" data-map="transfer-pass" />
+          <area alt="Forsaken Airfield" href="#map=forsaken-airfield" coords="193,1379,524,1440" shape="rect" data-map="forsaken-airfield" />
+          <area alt="Sundered Pass" href="#map=sundered-pass" coords="589,945,860,1008" shape="rect" data-map="sundered-pass" />
+          <area alt="Zone of Contamination" href="#map=zone-of-contamination" coords="814,1176,1093,1269" shape="rect" data-map="zone-of-contamination" />
+          <area alt="Transition Cave" href="#map=transition-cave" coords="610,1060,780,1140" shape="rect" data-map="transition-cave" />
+          <area alt="Langston Mine" href="#map=langston-mine" coords="910,1035,1025,1100" shape="rect" data-map="langston-mine" />
+        </map>
+      </section>
+
+      <section id="map-view" hidden aria-label="Region map">
+        <div id="map-viewport" tabindex="0" aria-describedby="map-help">
+          <img id="region-image" alt="" draggable="false" decoding="async" />
+          <div id="loading" role="status" hidden>Loading map...</div>
+          <div id="map-error" role="alert" hidden>
+            <p>Unable to load this map.</p>
+            <button id="retry-button" type="button">Try again</button>
           </div>
         </div>
-        <div class="credits">
-          <h2>Credits</h2>
-          <p>
-            This page uses material from the <br />
-            <a
-              href="https://steamcommunity.com/sharedfiles/filedetails/?id=3255435617"
-              >Updated Region Maps [2024] Steam Guide</a
-            >
-            <br />
-            by the Author
-            <a href="https://steamcommunity.com/profiles/76561198212232496"
-              >HokuOwl</a
-            >
-          </p>
-          <p>
-            This page also uses material from <br />
-            <a
-              href="https://steamcommunity.com/sharedfiles/filedetails/?id=2899955301"
-              >Tales from the Far Territory map locations Steam Guide</a
-            >
-            by the Author
-            <a href="https://steamcommunity.com/profiles/76561198054890338"
-              >Krueger</a
-            >
-          </p>
-        </div>
+        <p id="map-help" class="visually-hidden">Drag to pan. Use the mouse wheel or pinch to zoom. Press plus or minus to zoom, zero to reset, and Escape to return to the world map.</p>
+      </section>
+    </main>
+
+    <div class="controls" aria-label="Map controls">
+      <button id="settings-button" type="button" aria-label="Open map settings" aria-expanded="false" aria-controls="settings-panel">Settings</button>
+      <div class="zoom-controls" id="zoom-controls" hidden>
+        <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+        <button id="zoom-reset" type="button" aria-label="Reset zoom">Reset</button>
+        <button id="zoom-out" type="button" aria-label="Zoom out">-</button>
       </div>
+      <button id="home-button" type="button" aria-label="Return to world map" hidden>Home</button>
     </div>
 
-    <div id="start-map-container">
-      <img
-        src="assets/img/homemap.png"
-        alt="Start Map"
-        usemap="#map-links"
-        id="start-map-image"
-        draggable="false"
-      />
-
-      <!-- Define clickable areas -->
-      <map name="map-links">
-        <area
-          id="forlorn-muskeg"
-          alt="Forlorn Muskeg"
-          title="Forlorn Muskeg"
-          href="javascript:void(0);"
-          coords="1747,1332,2046,1394"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('forlorn-muskeg')"
-        />
-        <area
-          id="broken-railroad"
-          alt="Broken Railroad"
-          title="Broken Railroad"
-          href="javascript:void(0);"
-          coords="1312,1266,1628,1329"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('broken-railroad')"
-        />
-        <area
-          id="mountain-town"
-          alt="Mountain Town"
-          title="Mountain Town"
-          href="javascript:void(0);"
-          coords="1587,795,1876,855"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('mountain-town')"
-        />
-        <area
-          id="hushed-river-valley"
-          alt="Hushed River Valley"
-          title="Hushed River Valley"
-          href="javascript:void(0);"
-          coords="1405,366,1769,429"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('hushed-river-valley')"
-        />
-        <area
-          id="keepers-pass"
-          alt="Keeper's Pass"
-          title="Keeper's Pass"
-          href="javascript:void(0);"
-          coords="2222,567,2485,643"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('keepers-pass')"
-        />
-        <area
-          id="bleak-inlet"
-          alt="Bleak Inlet"
-          title="Bleak Inlet"
-          href="javascript:void(0);"
-          coords="2358,1570,2585,1629"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('bleak-inlet')"
-        />
-        <area
-          id="the-ravine"
-          alt="The Ravine"
-          title="The Ravine"
-          href="javascript:void(0);"
-          coords="2459,1212,2662,1294"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('ravine')"
-        />
-        <area
-          id="winding-river"
-          alt="Winding River"
-          title="Winding River"
-          href="javascript:void(0);"
-          coords="2459,1132,2715,1192"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('winding-river-&-carter-hydro-dam')"
-        />
-        <area
-          id="pleasant-valley"
-          alt="Pleasant Valley"
-          title="Pleasant Valley"
-          href="javascript:void(0);"
-          coords="2735,735,3035,798"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('pleasant-valley')"
-        />
-        <area
-          id="timberwolf-mountain"
-          alt="Timberwolf Mountain"
-          title="Timberwolf Mountain"
-          href="javascript:void(0);"
-          coords="2938,434,3313,493"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('timberwolf-mountain')"
-        />
-        <area
-          id="ash-canyon"
-          alt="Ash Canyon"
-          title="Ash Canyon"
-          href="javascript:void(0);"
-          coords="3425,300,3650,360"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('ash-canyon')"
-        />
-        <area
-          id="coastal-highway"
-          alt="Coastal Highway"
-          title="Coastal Highway"
-          href="javascript:void(0);"
-          coords="2897,1352,3206,1413"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('coastal-highway')"
-        />
-        <area
-          id="crumbling-highway"
-          alt="Crumbling Highway"
-          title="Crumbling Highway"
-          href="javascript:void(0);"
-          coords="3039,1805,3375,1882"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('crumbling-highway')"
-        />
-        <area
-          id="desolation-point"
-          alt="Desolation Point"
-          title="Desolation Point"
-          href="javascript:void(0);"
-          coords="3225,1548,3540,1611"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('desolation-point')"
-        />
-        <area
-          id="mystery-lake"
-          alt="Mystery Lake"
-          title="Mystery Lake"
-          href="javascript:void(0);"
-          coords="2022,1005,2276,1068"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('mystery-lake')"
-        />
-        <area
-          id="blackrock"
-          alt="Blackrock"
-          title="Blackrock"
-          href="javascript:void(0);"
-          coords="2617,205,2828,265"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('blackrock')"
-        />
-        <area
-          id="far-range-branch-line"
-          alt="Far Range Branch Line"
-          title="Far Range Branch Line"
-          href="javascript:void(0);"
-          coords="741,1591,1127,1667"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('far-range-branch-line')"
-        />
-        <area
-          id="transfer-pass"
-          alt="Transfer Pass"
-          title="Transfer Pass"
-          href="javascript:void(0);"
-          coords="655,1294,924,1356"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('transfer-pass')"
-        />
-        <area
-          id="forsaken-airfield"
-          alt="Forsaken Airfield"
-          title="Forsaken Airfield"
-          href="javascript:void(0);"
-          coords="193,1379,524,1440"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('forsaken-airfield')"
-        />
-        <area
-          id="sundered-pass"
-          alt="Sundered Pass"
-          title="Sundered Pass"
-          href="javascript:void(0);"
-          coords="589,945,860,1008"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('sundered-pass')"
-        />
-        <area
-          id="zone-of-contamination"
-          alt="Zone of Contamination"
-          title="Zone of Contamination"
-          href="javascript:void(0);"
-          coords="814,1176,1093,1269"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('zone-of-contamination')"
-        />
-        <area
-          id="tftft-transitional-cave"
-          alt="TFTFT Transitional Cave"
-          title="TFTFT Transitional Cave"
-          href="javascript:void(0);"
-          coords="610,1060,780,1140"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('transition-cave')"
-        />
-        <area
-          id="tftft-langston-mine"
-          alt="Langston Mine"
-          title="Langston Mine"
-          href="javascript:void(0);"
-          coords="910,1035,1025,1100"
-          shape="rect"
-          class="area-element"
-          onclick="loadMap('langston-mine')"
-        />
-      </map>
-    </div>
-    <div id="overlay-container"></div>
-    <!-- Map Image Wrapper -->
-    <div id="images-wrapper">
-      <div class="image-container" id="map-image">
-        <img
-          src="#"
-          alt="This Map was recently updated! Cron will fix this within 24h"
-        />
+    <aside id="settings-panel" class="settings-panel" hidden aria-label="Map settings">
+      <h2>Difficulty</h2>
+      <div class="difficulty-buttons" role="group" aria-label="Map difficulty">
+        <button type="button" data-difficulty="pilgrim" aria-pressed="true">Pilgrim / Voyageur / Stalker</button>
+        <button type="button" data-difficulty="interloper" aria-pressed="false">Interloper / Misery</button>
       </div>
-    </div>
+      <h2>Credits</h2>
+      <p>Map material: <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3255435617" rel="noopener noreferrer" target="_blank">HokuOwl's Updated Region Maps</a>.</p>
+      <p>Far Territory material: <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=2899955301" rel="noopener noreferrer" target="_blank">Krueger's map locations guide</a>.</p>
+    </aside>
 
-    <!-- Home button at the bottom-right -->
-    <button id="homeButton" class="home-button">
-      <img src="assets/img/home.png" alt="Back to Home" />
-    </button>
-
-    <!-- Link to external JS -->
-    <script src="assets/js/script.js"></script>
+    <div id="transition-menu" class="transition-menu" role="menu" hidden aria-label="Choose destination"></div>
+    <p id="app-status" class="visually-hidden" aria-live="polite"></p>
+    <script type="module" src="assets/js/script.js"></script>
   </body>
 </html>

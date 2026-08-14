@@ -1,589 +1,322 @@
-let currentCategory = 'pilgrim';
-let maps = {};
+import { mapTransitions, TRANSITION_SIZE } from "./transitions.js";
 
-// Single source of truth — pan + zoom both applied as transform on the img
-let zoomLevel = 1;
-let panX = 0, panY = 0;
-let dragging = false;
-let dragStartX = 0, dragStartY = 0;
-let dragStartPanX = 0, dragStartPanY = 0;
+const DIFFICULTIES = new Set(["pilgrim", "interloper"]);
+const STORAGE_KEY = "tld-map:difficulty";
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 5;
+const ZOOM_STEP = 0.25;
+
+const elements = {
+  homeView: document.querySelector("#home-view"), mapView: document.querySelector("#map-view"),
+  homeImage: document.querySelector("#start-map-image"), viewport: document.querySelector("#map-viewport"),
+  image: document.querySelector("#region-image"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
+  retry: document.querySelector("#retry-button"), title: document.querySelector("#map-title"), status: document.querySelector("#app-status"),
+  home: document.querySelector("#home-button"), zoomControls: document.querySelector("#zoom-controls"),
+  zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"),
+  settingsButton: document.querySelector("#settings-button"), settings: document.querySelector("#settings-panel"),
+  difficultyButtons: [...document.querySelectorAll("[data-difficulty]")], transitionMenu: document.querySelector("#transition-menu")
+};
+
+const state = { maps: null, mapId: null, difficulty: readDifficulty(), zoom: 1, panX: 0, panY: 0, requestId: 0, pointer: null, pointers: new Map(), pinch: null };
+
+function readDifficulty() {
+  try {
+    const value = localStorage.getItem(STORAGE_KEY);
+    return DIFFICULTIES.has(value) ? value : "pilgrim";
+  } catch {
+    return "pilgrim";
+  }
+}
+
+function saveDifficulty() {
+  try { localStorage.setItem(STORAGE_KEY, state.difficulty); } catch { /* Storage is optional. */ }
+}
+
+function labelFor(id) {
+  return id.split("-").map((word) => word === "&" ? word : `${word[0].toUpperCase()}${word.slice(1)}`).join(" ");
+}
+
+function announce(message) { elements.status.textContent = message; }
+
+function routeFromHash() {
+  const rawHash = location.hash.slice(1);
+  // Preserve links created by the previous version of the site.
+  if (rawHash && !rawHash.startsWith("map=") && !rawHash.startsWith("difficulty=")) return { mapId: rawHash, difficulty: null };
+  const params = new URLSearchParams(rawHash);
+  const mapId = params.get("map");
+  const difficulty = params.get("difficulty");
+  return { mapId, difficulty: DIFFICULTIES.has(difficulty) ? difficulty : null };
+}
+
+function writeRoute(mode = "replace") {
+  const params = new URLSearchParams({ difficulty: state.difficulty });
+  if (state.mapId) params.set("map", state.mapId);
+  const url = `${location.pathname}${location.search}#${params}`;
+  history[`${mode}State`]({ mapId: state.mapId, difficulty: state.difficulty }, "", url);
+}
+
+function updateDifficultyControls() {
+  elements.difficultyButtons.forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.difficulty === state.difficulty));
+  });
+}
+
+function resetView() {
+  state.zoom = 1;
+  state.panX = 0;
+  state.panY = 0;
+  applyTransform();
+}
+
+function clampPan() {
+  const width = elements.image.clientWidth * state.zoom;
+  const height = elements.image.clientHeight * state.zoom;
+  const maxX = Math.max(0, (width - elements.viewport.clientWidth) / 2);
+  const maxY = Math.max(0, (height - elements.viewport.clientHeight) / 2);
+  state.panX = Math.min(maxX, Math.max(-maxX, state.panX));
+  state.panY = Math.min(maxY, Math.max(-maxY, state.panY));
+}
 
 function applyTransform() {
-  const img = document.querySelector('#map-image img');
-  if (img) img.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
+  clampPan();
+  elements.image.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
 }
 
-function resetTransform() {
-  zoomLevel = 1; panX = 0; panY = 0;
+function setZoom(nextZoom, clientX, clientY) {
+  const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
+  if (zoom === state.zoom) return;
+  const rect = elements.viewport.getBoundingClientRect();
+  const x = clientX ?? rect.left + rect.width / 2;
+  const y = clientY ?? rect.top + rect.height / 2;
+  const relativeX = (x - (rect.left + rect.width / 2) - state.panX) / state.zoom;
+  const relativeY = (y - (rect.top + rect.height / 2) - state.panY) / state.zoom;
+  state.zoom = zoom;
+  state.panX = x - (rect.left + rect.width / 2) - relativeX * zoom;
+  state.panY = y - (rect.top + rect.height / 2) - relativeY * zoom;
   applyTransform();
 }
 
-// ─── Maps JSON ───────────────────────────────────────────────────────────────
+function hideTransitionMenu() { elements.transitionMenu.hidden = true; elements.transitionMenu.replaceChildren(); }
 
-async function updateMaps() {
-  try {
-    const response = await fetch('assets/js/maps.json');
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    maps = await response.json();
-    console.log('Maps data loaded.');
-  } catch (error) {
-    console.error('Error fetching maps.json:', error);
-    const img = document.getElementById('start-map-image');
-    if (img) img.alt = 'Failed to load map data. Please refresh the page.';
-  }
-}
-
-// ─── Passage Coordinates ──────────────────────────────────────────────────────
-
-let currentMapId = null;
-
-const mapTransitions = {
-  "mystery-lake": [
-    { x: 1933, y: 4230, w: 150, h: 150, target: "forlorn-muskeg" },
-    { x: 667, y: 4160, w: 150, h: 150, target: "mountain-town" },
-    { x: 3823, y: 1202, w: 150, h: 150, target: "winding-river-&-carter-hydro-dam" },
-    { x: 3980, y: 1427, w: 150, h: 150, target: "ravine" },
-  ],
-  "forlorn-muskeg": [
-    { x: 2974, y: 1646, w: 150, h: 150, target: "mystery-lake" },
-    { x: 176, y: 2037, w: 150, h: 150, target: "broken-railroad" },
-    { x: 701, y: 923, w: 150, h: 150, target: "mountain-town" },
-    { x: 2399, y: 3329, w: 150, h: 150, target: "bleak-inlet" },
-  ],
-  "ravine": [
-    { x: 104, y: 916, w: 150, h: 150, target: "mystery-lake" },
-    { x: 1210, y: 1120, w: 150, h: 150, target: "bleak-inlet" },
-    { x: 2088, y: 894, w: 150, h: 150, target: "coastal-highway" },
-  ],
-  "winding-river-&-carter-hydro-dam": [
-    { x: 1806, y: 2987, w: 150, h: 150, target: "mystery-lake" },
-    { x: 2699, y: 1655, w: 150, h: 150, target: "mystery-lake" },
-    { x: 3194, y: 593, w: 150, h: 150, target: "pleasant-valley" },
-  ],
-  "pleasant-valley": [
-    { x: 1159, y: 3798, w: 150, h: 150, target: "winding-river-&-carter-hydro-dam" },
-    { x: 4307, y: 3783, w: 150, h: 150, target: "coastal-highway" },
-    { x: 3928, y: 51, w: 150, h: 150, target: "timberwolf-mountain" },
-    { x: 229, 
-      y: 2105, 
-      w: 150, 
-      h: 150, 
-      targets: [
-        { name: "Keeper's Pass", id: "keepers-pass" },
-        { name: "Blackrock", id: "blackrock" }
-      ]
-    },
-  ],
-  "coastal-highway": [
-    { x: 321, y: 271, w: 150, h: 150, target: "ravine" },
-    { x: 2042, y: 58, w: 150, h: 150, target: "pleasant-valley" },
-    { x: 3175, y: 2846, w: 150, h: 150, target: "crumbling-highway" },
-  ],
-  "crumbling-highway": [
-    { x: 125, y: 895, w: 150, h: 150, target: "coastal-highway" },
-    { x: 1617, y: 722, w: 150, h: 150, target: "desolation-point" },
-  ],
-  "desolation-point": [
-    { x: 133, y: 976, w: 150, h: 150, target: "crumbling-highway" },
-  ],
-  "bleak-inlet": [
-    { x: 2336, y: 658, w: 150, h: 150, target: "ravine" },
-    { x: 1601, y: 793, w: 150, h: 150, target: "forlorn-muskeg" },
-  ],
-  "keepers-pass": [
-    { x: 995, y: 1626, w: 150, h: 150, target: "pleasant-valley" },
-    { x: 1562, y: 364, w: 150, h: 150, target: "blackrock" },
-  ],
-  "blackrock": [
-    { x: 2935, y: 2173, w: 150, h: 150, target: "timberwolf-mountain" },
-    { x: 1326,
-      y: 3251, 
-      w: 150, 
-      h: 150, 
-      targets: [
-        { name: "Keeper's Pass", id: "keepers-pass" },
-        { name: "Pleasant Valley", id: "pleasant-valley" }
-      ] 
-    }
-  ],
-  "timberwolf-mountain": [
-    { x: 272, y: 2539, w: 150, h: 150, target: "pleasant-valley" },
-    { x: 2736, y: 1891, w: 150, h: 150, target: "ash-canyon" },
-    { x: 2561, y: 645, w: 150, h: 150, target: "ash-canyon" },
-    { x: 260, y: 843, w: 150, h: 150, target: "blackrock" },
-  ],
-  "ash-canyon": [
-    { x: 2801, y: 2971, w: 150, h: 150, target: "timberwolf-mountain" },
-    { x: 1210, y: 2942, w: 150, h: 150, target: "timberwolf-mountain" },
-  ],
-  "mountain-town": [
-    { x: 313, y: 3319, w: 150, h: 150, target: "forlorn-muskeg" },
-    { x: 2410, y: 2272, w: 150, h: 150, target: "mystery-lake" },
-    { x: 1636, y: 202, w: 150, h: 150, target: "hushed-river-valley" },
-  ],
-  "hushed-river-valley": [
-    { x: 695, y: 2557, w: 150, h: 150, target: "mountain-town" },
-  ],
-  "broken-railroad": [
-    { x: 2208, y: 1341, w: 150, h: 150, target: "forlorn-muskeg" },
-    { x: 130, y: 1531, w: 150, h: 150, target: "far-range-branch-line" },
-  ],
-  "far-range-branch-line": [
-    { x: 2850, y: 331, w: 150, h: 150, target: "broken-railroad" },
-    { x: 156, y: 728, w: 150, h: 150, target: "transfer-pass" },
-  ],
-  "transfer-pass": [
-    { x: 1500, y: 1878, w: 150, h: 150, target: "far-range-branch-line" },
-    { x: 815, y: 1016, w: 150, h: 150, target: "forsaken-airfield" },
-    { x: 1580, y: 142, w: 150, h: 150, target: "zone-of-contamination" },
-    { x: 568, y: 139, w: 150, h: 150, target: "sundered-pass" },
-  ],
-  "zone-of-contamination": [
-    { x: 2871, y: 2631, w: 150, h: 150, target: "transfer-pass" },
-    { x: 294, y: 1664, w: 150, h: 150, target: "langston-mine" },
-    { x: 1066, y: 1330, w: 150, h: 150, target: "langston-mine" },
-    { x: 922, y: 1080, w: 150, h: 150, target: "langston-mine" },
-    { x: 1247,
-      y: 2797,
-      w: 150, 
-      h: 150, 
-      targets: [
-        { name: "Transition Cave", id: "transition-cave" },
-        { name: "Forsaken Airfield", id: "forsaken-airfield" },
-        { name: "Sundered Pass", id: "sundered-pass" },
-      ] 
-    },
-  ],
-  "sundered-pass": [
-    { x: 1387, y: 4244, w: 150, h: 150, target: "transfer-pass" },
-    { x: 506, 
-      y: 2898, 
-      w: 150, 
-      h: 150, 
-      targets: [
-        { name: "Transition Cave", id: "transition-cave" },
-        { name: "Forsaken Airfield", id: "forsaken-airfield" },
-        { name: "Zone of Contamination", id: "zone-of-contamination" },
-      ]  
-    },
-  ],
-  "forsaken-airfield": [
-    { x: 3084, y: 4186, w: 150, h: 150, target: "transfer-pass" },
-    { x: 4463, 
-      y: 2045, 
-      w: 150, 
-      h: 150, 
-      targets: [
-        { name: "Transition Cave", id: "transition-cave" },
-        { name: "Sundered Pass", id: "sundered-pass" },
-        { name: "Zone of Contamination", id: "zone-of-contamination" },
-      ]  
-    },
-  ],
-  "langston-mine": [
-    { x: -25, y: 974, w: 150, h: 150, target: "zone-of-contamination" },
-    { x: 571, y: 89, w: 150, h: 150, target: "zone-of-contamination" },
-    { x: 1785, y: 1108, w: 150, h: 150, target: "zone-of-contamination" },
-  ],
-  "transition-cave": [
-    { x: 92, y: 302, w: 150, h: 150, target: "forsaken-airfield" },
-    { x: 969, y: 1784, w: 150, h: 150, target: "zone-of-contamination" },
-    { x: 1407, y: 727, w: 150, h: 150, target: "sundered-pass" },
-  ]
-}
-
-// ─── Difficulty ───────────────────────────────────────────────────────────────
-
-function setCategory(difficulty) {
-  currentCategory = difficulty;
-}
-
-document.querySelectorAll('.difficulty-buttons button').forEach((button) => {
-  button.addEventListener('click', () => {
-    document.querySelectorAll('.difficulty-buttons button').forEach((btn) => {
-      btn.classList.remove('active');
-    });
-    button.classList.add('active');
-    setCategory(button.id.toLowerCase());
+function showTransitionMenu(targets, clientX, clientY) {
+  elements.transitionMenu.replaceChildren();
+  targets.forEach((target) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.role = "menuitem";
+    button.textContent = `To ${labelFor(target)}`;
+    button.addEventListener("click", () => navigate(target));
+    elements.transitionMenu.append(button);
   });
-});
+  elements.transitionMenu.hidden = false;
+  const margin = 8;
+  const rect = elements.transitionMenu.getBoundingClientRect();
+  elements.transitionMenu.style.left = `${Math.min(innerWidth - rect.width - margin, Math.max(margin, clientX))}px`;
+  elements.transitionMenu.style.top = `${Math.min(innerHeight - rect.height - margin, Math.max(margin, clientY))}px`;
+  elements.transitionMenu.querySelector("button").focus();
+}
 
-// ─── Map scaling (FIX: stores original coords, never mutates them) ────────────
+function transitionAt(clientX, clientY) {
+  const imageRect = elements.image.getBoundingClientRect();
+  if (!elements.image.naturalWidth || !imageRect.width) return null;
+  const x = (clientX - imageRect.left) / (imageRect.width / elements.image.naturalWidth);
+  const y = (clientY - imageRect.top) / (imageRect.height / elements.image.naturalHeight);
+  return mapTransitions[state.mapId]?.find((transition) => x >= transition.x && x <= transition.x + TRANSITION_SIZE && y >= transition.y && y <= transition.y + TRANSITION_SIZE);
+}
 
-function scaleMapAreas() {
-  const img = document.getElementById('start-map-image');
-  if (!img) return;
+function activateTransition(clientX, clientY) {
+  const transition = transitionAt(clientX, clientY);
+  if (!transition) return;
+  if (transition.target) navigate(transition.target);
+  else showTransitionMenu(transition.targets, clientX, clientY);
+}
 
-  const originalWidth = img.naturalWidth;
-  const originalHeight = img.naturalHeight;
-  if (!originalWidth || !originalHeight) return;
-
-  const scaleFactorX = img.clientWidth / originalWidth;
-  const scaleFactorY = img.clientHeight / originalHeight;
-
-  document.querySelectorAll('area').forEach((area) => {
-    // Store original coords once — never overwrite
-    if (!area.dataset.originalCoords) {
-      area.dataset.originalCoords = area.getAttribute('coords');
-    }
-    const original = area.dataset.originalCoords.split(',').map(Number);
-    const scaled = original.map((coord, index) =>
-      Math.round(index % 2 === 0 ? coord * scaleFactorX : coord * scaleFactorY)
-    );
-    area.setAttribute('coords', scaled.join(','));
+function preloadAdjacentMaps() {
+  mapTransitions[state.mapId]?.flatMap((transition) => transition.targets ?? [transition.target]).forEach((id) => {
+    const url = state.maps[id]?.[state.difficulty];
+    if (url) new Image().src = url;
   });
 }
 
-// ─── Show/Load Map ────────────────────────────────────────────────────────────
-
-function showMap(mapId) {
-  document.querySelectorAll('.image-container').forEach((image) => {
-    image.classList.remove('active');
-    image.style.left = '0px';
-    image.style.top = '0px';
-  });
-
-  const mapImageUrl = maps[mapId]?.[currentCategory];
-  if (mapImageUrl) {
-    const img = document.querySelector('#map-image img');
-    img.src = mapImageUrl;
-    resetTransform();
-    document.querySelector('#map-image').classList.add('active');
-  } else {
-    console.error('Map URL not found for', mapId, currentCategory);
-  }
+function showHome({ route = "push" } = {}) {
+  state.mapId = null;
+  state.requestId += 1;
+  hideTransitionMenu();
+  elements.mapView.hidden = true;
+  elements.homeView.hidden = false;
+  elements.home.hidden = true;
+  elements.zoomControls.hidden = true;
+  elements.title.textContent = "Choose a region";
+  if (route) writeRoute(route);
 }
 
-function loadMap(mapId, updateHistory = true) {
-  currentMapId = mapId;
-  document.querySelectorAll('.highlight-overlay').forEach((el) => el.remove());
-  showMap(mapId);
-  document.getElementById('start-map-image').style.display = 'none';
-  document.querySelector('#images-wrapper').style.display = 'block';
-
-  // Adds the map to the browser history
-  if (updateHistory) {
-    window.history.pushState({ mapId: mapId }, '', `#${mapId}`);
-  }
-}
-
-function showStartMap(updateHistory = true) {
-  currentMapId = null;
-  document.getElementById('start-map-image').style.display = 'block';
-  document.querySelectorAll('.image-container').forEach((image) => {
-    image.classList.remove('active');
-  });
-  const img = document.querySelector('#map-image img');
-  if (img) img.src = '';
-  resetTransform();
-
-  // Clears the hash from the URL and adds to history
-  if (updateHistory) {
-    window.history.pushState({ mapId: 'home' }, '', window.location.pathname + window.location.search);
-  }
-}
-
-document.getElementById('homeButton').addEventListener('click', () => showStartMap());
-
-// ─── Drag (mouse) ─────────────────────────────────────────────────────────────
-
-document.querySelectorAll('.image-container').forEach((map) => {
-  map.addEventListener('mousedown', (e) => {
-    if (!map.classList.contains('active')) return;
-    dragging = true;
-    dragStartX = e.clientX;
-    dragStartY = e.clientY;
-    dragStartPanX = panX;
-    dragStartPanY = panY;
-    map.classList.add('dragging');
-    e.preventDefault();
-  });
-
-  // ─── Zoom (mouse wheel) ───────────────────────────────────────────────────
-
-  map.addEventListener('wheel', (e) => {
-    if (!map.classList.contains('active')) return;
-    e.preventDefault();
-    zoomLevel += e.deltaY < 0 ? 0.1 : -0.1;
-    zoomLevel = Math.min(Math.max(zoomLevel, 0.5), 5);
-    applyTransform();
-  }, { passive: false });
-});
-
-document.addEventListener('mousemove', (e) => {
-  if (!dragging) return;
-  panX = dragStartPanX + (e.clientX - dragStartX);
-  panY = dragStartPanY + (e.clientY - dragStartY);
-  applyTransform();
-});
-
-document.addEventListener('mouseup', () => {
-  dragging = false;
-  document.querySelectorAll('.image-container').forEach((m) => m.classList.remove('dragging'));
-});
-
-// ─── Touch support (pinch-zoom + drag) ───────────────────────────────────────
-
-let touchStartDist = null;
-let touchStartZoom = 1;
-let touchStartX = 0, touchStartY = 0;
-let touchStartPanX = 0, touchStartPanY = 0;
-
-function getTouchDistance(touches) {
-  const dx = touches[0].clientX - touches[1].clientX;
-  const dy = touches[0].clientY - touches[1].clientY;
-  return Math.sqrt(dx * dx + dy * dy);
-}
-
-document.querySelectorAll('.image-container').forEach((map) => {
-  map.addEventListener('touchstart', (e) => {
-    if (!map.classList.contains('active')) return;
-    if (e.touches.length === 2) {
-      touchStartDist = getTouchDistance(e.touches);
-      touchStartZoom = zoomLevel;
-    } else if (e.touches.length === 1) {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-      touchStartPanX = panX;
-      touchStartPanY = panY;
-    }
-    e.preventDefault();
-  }, { passive: false });
-
-  map.addEventListener('touchmove', (e) => {
-    if (!map.classList.contains('active')) return;
-    if (e.touches.length === 2 && touchStartDist !== null) {
-      const currentDist = getTouchDistance(e.touches);
-      zoomLevel = Math.min(Math.max(touchStartZoom * (currentDist / touchStartDist), 0.5), 5);
-    } else if (e.touches.length === 1) {
-      panX = touchStartPanX + (e.touches[0].clientX - touchStartX);
-      panY = touchStartPanY + (e.touches[0].clientY - touchStartY);
-    }
-    applyTransform();
-    e.preventDefault();
-  }, { passive: false });
-
-  map.addEventListener('touchend', (e) => {
-    if (e.touches.length < 2) touchStartDist = null;
-  });
-});
-
-// ─── Settings popup (cog) ─────────────────────────────────────────────────────
-
-document.addEventListener('DOMContentLoaded', () => {
-  const cogIconContainer = document.getElementById('cog-icon');
-  const cogIcon = cogIconContainer.querySelector('i');
-  const settingsPopup = document.getElementById('settings-popup');
-
-  const togglePopup = () => {
-    const isVisible = settingsPopup.style.display === 'block';
-    settingsPopup.style.display = isVisible ? 'none' : 'block';
-    cogIcon.classList.toggle('rotate', !isVisible);
+function loadImage(url, mapId) {
+  const requestId = ++state.requestId;
+  elements.error.hidden = true;
+  elements.loading.hidden = false;
+  elements.image.hidden = true;
+  elements.viewport.classList.remove("is-ready");
+  elements.image.alt = `${labelFor(mapId)} map for ${state.difficulty} difficulty`;
+  elements.image.onload = async () => {
+    if (requestId !== state.requestId) return;
+    try { await elements.image.decode(); } catch { /* The loaded image is still usable. */ }
+    if (requestId !== state.requestId) return;
+    elements.loading.hidden = true;
+    elements.image.hidden = false;
+    elements.viewport.classList.add("is-ready");
+    resetView();
+    preloadAdjacentMaps();
+    elements.viewport.focus({ preventScroll: true });
+    announce(`${labelFor(mapId)} loaded.`);
   };
+  elements.image.onerror = () => {
+    if (requestId !== state.requestId) return;
+    elements.loading.hidden = true;
+    elements.error.hidden = false;
+    announce(`Unable to load ${labelFor(mapId)}.`);
+  };
+  elements.image.src = url;
+}
 
-  cogIconContainer.addEventListener('click', togglePopup);
-  cogIcon.addEventListener('click', (e) => {
-    e.stopPropagation();
-    togglePopup();
-  });
-
-  window.addEventListener('click', (e) => {
-    if (
-      e.target !== settingsPopup &&
-      e.target !== cogIconContainer &&
-      !settingsPopup.contains(e.target)
-    ) {
-      settingsPopup.style.display = 'none';
-      cogIcon.classList.remove('rotate');
-    }
-  });
-
-  // ─── Highlight aura animation (FIX: uses scaled image rect for positioning) ──
-
-  setTimeout(() => {
-    const img = document.getElementById('start-map-image');
-    const overlayContainer = document.getElementById('overlay-container');
-    const imgRect = img.getBoundingClientRect();
-    const containerRect = overlayContainer.getBoundingClientRect();
-
-    document.querySelectorAll('area').forEach((el) => {
-      const rawCoords = el.dataset.originalCoords || el.getAttribute('coords');
-      if (!rawCoords) return;
-
-      const coords = rawCoords.split(',').map(Number);
-      const scaleX = imgRect.width  / img.naturalWidth;
-      const scaleY = imgRect.height / img.naturalHeight;
-
-      const overlay = document.createElement('div');
-      overlay.classList.add('highlight-overlay', 'highlight-aura');
-      overlay.style.left   = `${imgRect.left - containerRect.left + coords[0] * scaleX}px`;
-      overlay.style.top    = `${imgRect.top  - containerRect.top  + coords[1] * scaleY}px`;
-      overlay.style.width  = `${(coords[2] - coords[0]) * scaleX}px`;
-      overlay.style.height = `${(coords[3] - coords[1]) * scaleY}px`;
-      overlayContainer.appendChild(overlay);
-    });
-
-    // Remove overlays after animation
-    setTimeout(() => {
-      document.querySelectorAll('.highlight-overlay').forEach((el) => el.remove());
-    }, 5000);
-  }, 1000);
-});
-
-// ─── Init & Browser History ────────────────────────────────────────────────────
-
-window.addEventListener('popstate', (e) => {
-  const hash = window.location.hash.replace('#', '');
-  if (hash) {
-    // Loads the map but tells the function NOT to push to history again
-    loadMap(hash, false);
-  } else {
-    // If there is no hash, go back to the home screen
-    showStartMap(false);
-  }
-});
-
-// Initialization
-window.addEventListener('load', async () => { // Note the 'async' here
-  scaleMapAreas();
-  await updateMaps(); // Wait for the maps to load first
-  
-  // Check if the user entered the site with a hash link (e.g., /#mystery-lake)
-  const hash = window.location.hash.replace('#', '');
-  if (hash && maps[hash]) {
-    loadMap(hash, false);
-  }
-});
-
-window.addEventListener('resize', scaleMapAreas);
-
-// ─── Passage Click Coordinates Logic ──────────────────────────────────────────
-
-const transitionMenu = document.createElement('div');
-transitionMenu.className = 'transition-popup';
-transitionMenu.style.display = 'none';
-document.body.appendChild(transitionMenu);
-
-// Hide the menu if clicking outside of it
-document.addEventListener('mousedown', (e) => {
-  if (!transitionMenu.contains(e.target)) {
-    transitionMenu.style.display = 'none';
-  }
-});
-
-// --- Passage Click Coordinates Logic ---
-const mapContainer = document.querySelector('#map-image');
-let clickStartX = 0;
-let clickStartY = 0;
-
-mapContainer.addEventListener('mousedown', (e) => {
-  clickStartX = e.clientX;
-  clickStartY = e.clientY;
-});
-
-mapContainer.addEventListener('mouseup', (e) => {
-  if (!currentMapId) return;
-
-  const moveX = Math.abs(e.clientX - clickStartX);
-  const moveY = Math.abs(e.clientY - clickStartY);
-  if (moveX > 5 || moveY > 5) return; // User was panning, not clicking
-
-  const transitions = mapTransitions[currentMapId];
-  if (!transitions) return;
-
-  const regionImage = mapContainer.querySelector('img');
-  const rect = regionImage.getBoundingClientRect();
-  const scaleX = rect.width / regionImage.naturalWidth;
-  const scaleY = rect.height / regionImage.naturalHeight;
-  const clickX = (e.clientX - rect.left) / scaleX;
-  const clickY = (e.clientY - rect.top) / scaleY;
-
-  for (const t of transitions) {
-    if (
-      clickX >= t.x && clickX <= t.x + t.w &&
-      clickY >= t.y && clickY <= t.y + t.h
-    ) {
-      // IF MULTIPLE DESTINATIONS (Floating Menu)
-      if (t.targets) {
-        transitionMenu.innerHTML = ''; // Clear old buttons
-        transitionMenu.style.left = `${e.clientX}px`;
-        transitionMenu.style.top = `${e.clientY}px`;
-        transitionMenu.style.display = 'flex';
-
-        t.targets.forEach(dest => {
-          const btn = document.createElement('button');
-          btn.innerText = `To ${dest.name}`;
-          btn.onclick = () => {
-            transitionMenu.style.display = 'none';
-            loadMap(dest.id);
-          };
-          transitionMenu.appendChild(btn);
-        });
-      }
-      // IF SINGLE DESTINATION (Direct Map Load)
-      else if (t.target) {
-        console.log(`Transition detected! Loading: ${t.target}`);
-        loadMap(t.target);
-      }
-      break;
-    }
-  }
-});
-
-// ─── Hover effect logic (cursor to pointer) ───────────────────────────────────
-mapContainer.addEventListener('mousemove', (e) => {
-  if (dragging || !currentMapId) {
-    mapContainer.style.cursor = '';
+function navigate(mapId, { route = "push" } = {}) {
+  const url = state.maps?.[mapId]?.[state.difficulty];
+  if (!url) {
+    announce(`No ${state.difficulty} map is available for ${labelFor(mapId)}.`);
     return;
   }
+  state.mapId = mapId;
+  hideTransitionMenu();
+  elements.homeView.hidden = true;
+  elements.mapView.hidden = false;
+  elements.home.hidden = false;
+  elements.zoomControls.hidden = false;
+  elements.title.textContent = `${labelFor(mapId)} · ${state.difficulty === "pilgrim" ? "Pilgrim / Voyageur / Stalker" : "Interloper / Misery"}`;
+  if (route) writeRoute(route);
+  loadImage(url, mapId);
+}
 
-  const transitions = mapTransitions[currentMapId];
-  if (!transitions) {
-    mapContainer.style.cursor = '';
-    return;
-  }
+function setDifficulty(difficulty, { route = "replace" } = {}) {
+  if (!DIFFICULTIES.has(difficulty)) return;
+  state.difficulty = difficulty;
+  saveDifficulty();
+  updateDifficultyControls();
+  if (state.mapId) navigate(state.mapId, { route });
+  else if (route) writeRoute(route);
+  announce(`Difficulty set to ${difficulty}.`);
+}
 
-  const regionImage = mapContainer.querySelector('img');
-  const rect = regionImage.getBoundingClientRect();
-  const scaleX = rect.width / regionImage.naturalWidth;
-  const scaleY = rect.height / regionImage.naturalHeight;
+function scaleHomeAreas() {
+  const image = elements.homeImage;
+  if (!image.naturalWidth) return;
+  const scaleX = image.clientWidth / image.naturalWidth;
+  const scaleY = image.clientHeight / image.naturalHeight;
+  document.querySelectorAll("area[data-map]").forEach((area) => {
+    const original = (area.dataset.originalCoords ??= area.coords).split(",").map(Number);
+    area.coords = original.map((value, index) => Math.round(value * (index % 2 ? scaleY : scaleX))).join(",");
+  });
+}
 
-  const hoverX = (e.clientX - rect.left) / scaleX;
-  const hoverY = (e.clientY - rect.top) / scaleY;
-
-  let isHovering = false;
-  
-  for (const t of transitions) {
-    if (
-      hoverX >= t.x && hoverX <= t.x + t.w &&
-      hoverY >= t.y && hoverY <= t.y + t.h
-    ) {
-      isHovering = true;
-      break;
+function bindEvents() {
+  document.querySelectorAll("area[data-map]").forEach((area) => area.addEventListener("click", (event) => { event.preventDefault(); navigate(area.dataset.map); }));
+  elements.difficultyButtons.forEach((button) => button.addEventListener("click", () => setDifficulty(button.dataset.difficulty)));
+  elements.home.addEventListener("click", () => showHome());
+  elements.retry.addEventListener("click", () => state.mapId && navigate(state.mapId, { route: false }));
+  elements.zoomIn.addEventListener("click", () => setZoom(state.zoom + ZOOM_STEP));
+  elements.zoomOut.addEventListener("click", () => setZoom(state.zoom - ZOOM_STEP));
+  elements.zoomReset.addEventListener("click", resetView);
+  elements.settingsButton.addEventListener("click", () => {
+    const open = elements.settings.hidden;
+    elements.settings.hidden = !open;
+    elements.settingsButton.setAttribute("aria-expanded", String(open));
+    if (open) elements.settings.querySelector("button").focus();
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!elements.settings.hidden && !elements.settings.contains(event.target) && event.target !== elements.settingsButton) {
+      elements.settings.hidden = true;
+      elements.settingsButton.setAttribute("aria-expanded", "false");
     }
+    if (!elements.transitionMenu.hidden && !elements.transitionMenu.contains(event.target)) hideTransitionMenu();
+  });
+  elements.viewport.addEventListener("wheel", (event) => { event.preventDefault(); setZoom(state.zoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), event.clientX, event.clientY); }, { passive: false });
+  elements.viewport.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 && event.pointerType === "mouse") return;
+    hideTransitionMenu();
+    elements.viewport.setPointerCapture(event.pointerId);
+    state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (state.pointers.size === 2) {
+      const [first, second] = [...state.pointers.values()];
+      state.pinch = { distance: Math.hypot(second.x - first.x, second.y - first.y), zoom: state.zoom };
+      state.pointer = null;
+    } else {
+      state.pointer = { id: event.pointerId, x: event.clientX, y: event.clientY, panX: state.panX, panY: state.panY, moved: false };
+    }
+    elements.viewport.classList.add("is-dragging");
+  });
+  elements.viewport.addEventListener("pointermove", (event) => {
+    if (!state.pointers.has(event.pointerId)) return;
+    state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (state.pinch && state.pointers.size === 2) {
+      const [first, second] = [...state.pointers.values()];
+      const distance = Math.hypot(second.x - first.x, second.y - first.y);
+      setZoom(state.pinch.zoom * (distance / state.pinch.distance), (first.x + second.x) / 2, (first.y + second.y) / 2);
+      return;
+    }
+    if (!state.pointer || event.pointerId !== state.pointer.id) return;
+    const dx = event.clientX - state.pointer.x;
+    const dy = event.clientY - state.pointer.y;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) state.pointer.moved = true;
+    state.panX = state.pointer.panX + dx;
+    state.panY = state.pointer.panY + dy;
+    applyTransform();
+    elements.viewport.style.cursor = state.pointer.moved ? "grabbing" : transitionAt(event.clientX, event.clientY) ? "pointer" : "grab";
+  });
+  elements.viewport.addEventListener("pointerup", (event) => {
+    state.pointers.delete(event.pointerId);
+    if (state.pinch) {
+      state.pinch = null;
+      const [remainingId, remaining] = [...state.pointers.entries()][0] ?? [];
+      state.pointer = remaining ? { id: remainingId, x: remaining.x, y: remaining.y, panX: state.panX, panY: state.panY, moved: true } : null;
+      if (!remaining) elements.viewport.classList.remove("is-dragging");
+      return;
+    }
+    if (!state.pointer || event.pointerId !== state.pointer.id) return;
+    const pointer = state.pointer;
+    state.pointer = null;
+    elements.viewport.classList.remove("is-dragging");
+    if (!pointer.moved) activateTransition(event.clientX, event.clientY);
+  });
+  elements.viewport.addEventListener("pointercancel", (event) => { state.pointers.delete(event.pointerId); state.pointer = null; state.pinch = null; elements.viewport.classList.remove("is-dragging"); });
+  elements.viewport.addEventListener("keydown", (event) => {
+    if (event.key === "+" || event.key === "=") { event.preventDefault(); setZoom(state.zoom + ZOOM_STEP); }
+    if (event.key === "-") { event.preventDefault(); setZoom(state.zoom - ZOOM_STEP); }
+    if (event.key === "0") { event.preventDefault(); resetView(); }
+  });
+  window.addEventListener("keydown", (event) => { if (event.key === "Escape") { hideTransitionMenu(); if (!elements.settings.hidden) elements.settingsButton.click(); else if (state.mapId) showHome(); } });
+  window.addEventListener("resize", () => { scaleHomeAreas(); if (state.mapId) applyTransform(); });
+  window.addEventListener("popstate", () => applyRoute());
+  elements.homeImage.addEventListener("load", scaleHomeAreas);
+}
+
+function applyRoute() {
+  const route = routeFromHash();
+  if (route.difficulty) setDifficulty(route.difficulty, { route: false });
+  if (route.mapId) navigate(route.mapId, { route: false });
+  else showHome({ route: false });
+}
+
+async function initialize() {
+  updateDifficultyControls();
+  bindEvents();
+  try {
+    const response = await fetch("assets/js/maps.json");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    state.maps = await response.json();
+    applyRoute();
+  } catch (error) {
+    elements.title.textContent = "Map data is unavailable";
+    announce("Map data could not be loaded. Please refresh the page.");
+    console.error("Unable to load maps.json", error);
   }
+}
 
-  mapContainer.style.cursor = isHovering ? 'pointer' : '';
-});
-
-
-// ─── Devoloper tools: Right-click on the red passage in the map ───────────────
-// mapContainer.addEventListener('contextmenu', (e) => {
-//   e.preventDefault(); // Prevents the default browser context menu
-//   if (!currentMapId) return;
-
-//   const regionImage = mapContainer.querySelector('img');
-//   const rect = regionImage.getBoundingClientRect();
-//   const scaleX = rect.width / regionImage.naturalWidth;
-//   const scaleY = rect.height / regionImage.naturalHeight;
-  
-//   const clickX = Math.round((e.clientX - rect.left) / scaleX);
-//   const clickY = Math.round((e.clientY - rect.top) / scaleY);
-
-//   // Considers a 150x150 pixel "target" centered on where you clicked
-//   const targetObj = `{ x: ${clickX - 75}, y: ${clickY - 75}, w: 150, h: 150, target: "MAP_NAME" },`;
-  
-//   console.log("Copy the code below and paste it into your mapTransitions:");
-//   console.log(targetObj);
-//   alert("Code generated in the Browser Console (F12)!");
-// });
+initialize();

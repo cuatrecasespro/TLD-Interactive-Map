@@ -29,6 +29,9 @@ jobs:
         working-directory: assets/js
         run: node update-maps.js
 
+      - name: Validate map data and transitions
+        run: node scripts/validate-data.js
+
       - name: Commit and push updated maps.json
         run: |
           if git diff --quiet; then
