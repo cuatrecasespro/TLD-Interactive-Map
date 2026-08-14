@@ -222,6 +222,16 @@ function applyTransform() {
   elements.image.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
 }
 
+function fitMapImage() {
+  if (!elements.image.naturalWidth || !elements.viewport.clientWidth || !elements.viewport.clientHeight) return;
+  const scale = Math.min(
+    elements.viewport.clientWidth / elements.image.naturalWidth,
+    elements.viewport.clientHeight / elements.image.naturalHeight
+  );
+  elements.image.style.width = `${Math.floor(elements.image.naturalWidth * scale)}px`;
+  elements.image.style.height = `${Math.floor(elements.image.naturalHeight * scale)}px`;
+}
+
 function setZoom(nextZoom, clientX, clientY) {
   const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
   if (zoom === state.zoom) return;
@@ -309,6 +319,7 @@ function loadImage(url, mapId) {
     elements.loading.hidden = true;
     elements.image.hidden = false;
     elements.viewport.classList.add("is-ready");
+    fitMapImage();
     resetView();
     preloadAdjacentMaps();
     elements.viewport.focus({ preventScroll: true });
@@ -478,7 +489,14 @@ function bindEvents() {
     else if (!elements.credits.hidden) closeCredits();
     else if (state.mapId) showHome();
   });
-  window.addEventListener("resize", () => { scaleHomeAreas(); updateInstallButton(); if (state.mapId) applyTransform(); });
+  window.addEventListener("resize", () => {
+    scaleHomeAreas();
+    updateInstallButton();
+    if (state.mapId) {
+      fitMapImage();
+      applyTransform();
+    }
+  });
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
     deferredInstallPrompt = event;
