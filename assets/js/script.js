@@ -18,10 +18,11 @@ const elements = {
   homeImage: document.querySelector("#start-map-image"), viewport: document.querySelector("#map-viewport"),
   image: document.querySelector("#region-image"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
   retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-button"), status: document.querySelector("#app-status"),
-  home: document.querySelector("#home-button"), zoomControls: document.querySelector("#zoom-controls"),
+  zoomControls: document.querySelector("#zoom-controls"),
   zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"),
   regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"),
-  settingsButton: document.querySelector("#settings-button"), settings: document.querySelector("#settings-panel"), settingsClose: document.querySelector("#settings-close"),
+  infoButton: document.querySelector("#info-button"), info: document.querySelector("#info-panel"), infoClose: document.querySelector("#info-close"),
+  difficultyPanel: document.querySelector("#difficulty-panel"), difficultyClose: document.querySelector("#difficulty-close"),
   difficultyButtons: [...document.querySelectorAll("[data-difficulty]")], transitionMenu: document.querySelector("#transition-menu"),
   install: document.querySelector("#install-button"), installDialog: document.querySelector("#install-dialog"),
   installInstructions: document.querySelector("#install-instructions"), installClose: document.querySelector("#install-close"), nativeInstall: document.querySelector("#native-install-button")
@@ -110,6 +111,14 @@ function updateDifficultyControls() {
   elements.difficultyStatus.textContent = difficultyLabel();
 }
 
+function updateZoomControls() {
+  const percentage = Math.round(state.zoom * 100);
+  elements.zoomReset.textContent = `${percentage}%`;
+  elements.zoomReset.setAttribute("aria-label", `Reset zoom, currently ${percentage} percent`);
+  elements.zoomOut.disabled = state.zoom <= MIN_ZOOM;
+  elements.zoomIn.disabled = state.zoom >= MAX_ZOOM;
+}
+
 function updateRegionSelection() {
   elements.regionList.querySelectorAll("button[data-map]").forEach((button) => {
     button.setAttribute("aria-current", String(button.dataset.map === state.mapId));
@@ -139,9 +148,13 @@ function renderRegionList(query = "") {
     }));
 }
 
-function closeSettings() {
-  elements.settings.hidden = true;
-  elements.settingsButton.setAttribute("aria-expanded", "false");
+function closeInfo() {
+  elements.info.hidden = true;
+  elements.infoButton.setAttribute("aria-expanded", "false");
+}
+
+function closeDifficulty() {
+  elements.difficultyPanel.hidden = true;
   elements.difficultyButton.setAttribute("aria-expanded", "false");
 }
 
@@ -150,18 +163,27 @@ function closeRegions() {
   elements.locationButton.setAttribute("aria-expanded", "false");
 }
 
-function openSettings() {
+function openInfo() {
   closeRegions();
-  elements.settings.hidden = false;
-  elements.settingsButton.setAttribute("aria-expanded", "true");
+  closeDifficulty();
+  elements.info.hidden = false;
+  elements.infoButton.setAttribute("aria-expanded", "true");
+  elements.infoClose.focus();
+}
+
+function openDifficulty() {
+  closeRegions();
+  closeInfo();
+  elements.difficultyPanel.hidden = false;
   elements.difficultyButton.setAttribute("aria-expanded", "true");
-  elements.settingsClose.focus();
+  elements.difficultyClose.focus();
 }
 
 function toggleRegions() {
   const open = elements.regions.hidden;
   if (open) {
-    closeSettings();
+    closeInfo();
+    closeDifficulty();
     elements.regions.hidden = false;
     elements.locationButton.setAttribute("aria-expanded", "true");
     elements.regionSearch.focus();
@@ -175,6 +197,7 @@ function resetView() {
   state.panX = 0;
   state.panY = 0;
   applyTransform();
+  updateZoomControls();
 }
 
 function clampPan() {
@@ -203,6 +226,7 @@ function setZoom(nextZoom, clientX, clientY) {
   state.panX = x - (rect.left + rect.width / 2) - relativeX * zoom;
   state.panY = y - (rect.top + rect.height / 2) - relativeY * zoom;
   applyTransform();
+  updateZoomControls();
 }
 
 function hideTransitionMenu() { elements.transitionMenu.hidden = true; elements.transitionMenu.replaceChildren(); }
@@ -252,10 +276,10 @@ function showHome({ route = "push" } = {}) {
   state.requestId += 1;
   hideTransitionMenu();
   closeRegions();
-  closeSettings();
+  closeInfo();
+  closeDifficulty();
   elements.mapView.hidden = true;
   elements.homeView.hidden = false;
-  elements.home.hidden = true;
   elements.zoomControls.hidden = true;
   elements.title.textContent = "Choose a region";
   updateRegionSelection();
@@ -300,7 +324,6 @@ function navigate(mapId, { route = "push" } = {}) {
   hideTransitionMenu();
   elements.homeView.hidden = true;
   elements.mapView.hidden = false;
-  elements.home.hidden = false;
   elements.zoomControls.hidden = false;
   elements.title.textContent = labelFor(mapId);
   updateRegionSelection();
@@ -332,10 +355,9 @@ function scaleHomeAreas() {
 function bindEvents() {
   document.querySelectorAll("area[data-map]").forEach((area) => area.addEventListener("click", (event) => { event.preventDefault(); navigate(area.dataset.map); }));
   elements.difficultyButtons.forEach((button) => button.addEventListener("click", () => setDifficulty(button.dataset.difficulty)));
-  elements.home.addEventListener("click", () => showHome());
   elements.worldBrand.addEventListener("click", () => showHome());
   elements.locationButton.addEventListener("click", toggleRegions);
-  elements.difficultyButton.addEventListener("click", openSettings);
+  elements.difficultyButton.addEventListener("click", openDifficulty);
   elements.retry.addEventListener("click", () => state.mapId && navigate(state.mapId, { route: false }));
   elements.zoomIn.addEventListener("click", () => setZoom(state.zoom + ZOOM_STEP));
   elements.zoomOut.addEventListener("click", () => setZoom(state.zoom - ZOOM_STEP));
@@ -353,18 +375,18 @@ function bindEvents() {
     elements.installDialog.close();
     updateInstallButton();
   });
-  elements.settingsButton.addEventListener("click", () => {
-    const open = elements.settings.hidden;
-    if (open) {
-      openSettings();
-    } else {
-      closeSettings();
-    }
+  elements.infoButton.addEventListener("click", () => {
+    if (elements.info.hidden) openInfo();
+    else closeInfo();
   });
-  elements.settingsClose.addEventListener("click", closeSettings);
+  elements.infoClose.addEventListener("click", closeInfo);
+  elements.difficultyClose.addEventListener("click", closeDifficulty);
   document.addEventListener("pointerdown", (event) => {
-    if (!elements.settings.hidden && !elements.settings.contains(event.target) && event.target !== elements.settingsButton) {
-      closeSettings();
+    if (!elements.info.hidden && !elements.info.contains(event.target) && event.target !== elements.infoButton) {
+      closeInfo();
+    }
+    if (!elements.difficultyPanel.hidden && !elements.difficultyPanel.contains(event.target) && event.target !== elements.difficultyButton) {
+      closeDifficulty();
     }
     if (!elements.regions.hidden && !elements.regions.contains(event.target) && event.target !== elements.locationButton) {
       closeRegions();
@@ -429,7 +451,8 @@ function bindEvents() {
     if (event.key !== "Escape") return;
     hideTransitionMenu();
     if (!elements.regions.hidden) closeRegions();
-    else if (!elements.settings.hidden) closeSettings();
+    else if (!elements.difficultyPanel.hidden) closeDifficulty();
+    else if (!elements.info.hidden) closeInfo();
     else if (state.mapId) showHome();
   });
   window.addEventListener("resize", () => { scaleHomeAreas(); updateInstallButton(); if (state.mapId) applyTransform(); });
@@ -456,6 +479,7 @@ function applyRoute() {
 
 async function initialize() {
   updateDifficultyControls();
+  updateZoomControls();
   bindEvents();
   updateInstallButton();
   try {
