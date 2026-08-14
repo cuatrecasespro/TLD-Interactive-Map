@@ -9,6 +9,7 @@ const MAP_CATEGORIES = {
   misery: "interloper"
 };
 const STORAGE_KEY = "tld-map:difficulty";
+const HOTSPOT_STORAGE_KEY = "tld-map:home-hotspot-style";
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 5;
 const ZOOM_STEP = 0.25;
@@ -16,11 +17,11 @@ const PAN_STEP = 80;
 
 const elements = {
   homeView: document.querySelector("#home-view"), mapView: document.querySelector("#map-view"),
-  homeImage: document.querySelector("#start-map-image"), homeHotspots: document.querySelector("#home-map-hotspots"), viewport: document.querySelector("#map-viewport"),
+  homeStage: document.querySelector("#home-map-stage"), homeImage: document.querySelector("#start-map-image"), homeHotspots: document.querySelector("#home-map-hotspots"), viewport: document.querySelector("#map-viewport"),
   image: document.querySelector("#region-image"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
   retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-status"), status: document.querySelector("#app-status"),
   zoomControls: document.querySelector("#zoom-controls"),
-  zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"),
+  zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"), hotspotToggle: document.querySelector("#hotspot-toggle"), hotspotButtons: [...document.querySelectorAll("[data-hotspot-style]")],
   regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), worldRegion: document.querySelector("#world-region-button"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"),
   creditsButton: document.querySelector("#credits-button"), credits: document.querySelector("#credits-panel"), creditsClose: document.querySelector("#credits-close"),
   difficultyPanel: document.querySelector("#difficulty-panel"), difficultyClose: document.querySelector("#difficulty-close"),
@@ -32,7 +33,7 @@ const elements = {
 const state = {
   maps: null, mapId: null, difficulty: readDifficulty(),
   zoom: 1, panX: 0, panY: 0, requestId: 0, pointer: null, pointers: new Map(), pinch: null,
-  homeZoom: 1, homePanX: 0, homePanY: 0, homePointer: null, homePointers: new Map(), homePinch: null
+  homeZoom: 1, homePanX: 0, homePanY: 0, homePointer: null, homePointers: new Map(), homePinch: null, homeHotspotStyle: readHotspotStyle()
 };
 let deferredInstallPrompt = null;
 
@@ -47,6 +48,24 @@ function readDifficulty() {
 
 function saveDifficulty() {
   try { localStorage.setItem(STORAGE_KEY, state.difficulty); } catch { /* Storage is optional. */ }
+}
+
+function readHotspotStyle() {
+  try {
+    const style = localStorage.getItem(HOTSPOT_STORAGE_KEY);
+    if (["green", "white", "none"].includes(style)) return style;
+    return localStorage.getItem("tld-map:home-hotspots") === "off" ? "none" : "white";
+  } catch { return "white"; }
+}
+
+function setHomeHotspotStyle(style, { announceChange = false } = {}) {
+  if (!["green", "white", "none"].includes(style)) return;
+  state.homeHotspotStyle = style;
+  elements.homeHotspots.hidden = style === "none";
+  elements.homeHotspots.dataset.style = style;
+  elements.hotspotButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.hotspotStyle === style)));
+  try { localStorage.setItem(HOTSPOT_STORAGE_KEY, style); } catch { /* Storage is optional. */ }
+  if (announceChange) announce(`Clickable region hints set to ${style}.`);
 }
 
 function labelFor(id) {
@@ -247,6 +266,8 @@ function fitHomeImage() {
   );
   elements.homeImage.style.width = `${Math.floor(elements.homeImage.naturalWidth * scale)}px`;
   elements.homeImage.style.height = `${Math.floor(elements.homeImage.naturalHeight * scale)}px`;
+  elements.homeStage.style.width = elements.homeImage.style.width;
+  elements.homeStage.style.height = elements.homeImage.style.height;
   syncHomeHotspots();
 }
 
@@ -279,8 +300,7 @@ function clampHomePan() {
 function applyHomeTransform() {
   clampHomePan();
   const transform = `translate(${state.homePanX}px, ${state.homePanY}px) scale(${state.homeZoom})`;
-  elements.homeImage.style.transform = transform;
-  elements.homeHotspots.style.transform = `translate(-50%, -50%) ${transform}`;
+  elements.homeStage.style.transform = transform;
 }
 
 function resetHomeView() {
@@ -390,6 +410,7 @@ function showHome({ route = "push" } = {}) {
   elements.mapView.hidden = true;
   elements.homeView.hidden = false;
   elements.zoomControls.hidden = false;
+  elements.hotspotToggle.hidden = false;
   fitHomeImage();
   resetHomeView();
   elements.title.textContent = "Choose a region";
@@ -438,6 +459,7 @@ function navigate(mapId, { route = "push" } = {}) {
   elements.homeView.hidden = true;
   elements.mapView.hidden = false;
   elements.zoomControls.hidden = false;
+  elements.hotspotToggle.hidden = true;
   elements.title.textContent = labelFor(mapId);
   elements.locationButton.setAttribute("aria-label", `Choose a region, currently ${labelFor(mapId)}`);
   updateRegionSelection();
@@ -477,6 +499,7 @@ function bindEvents() {
   elements.zoomIn.addEventListener("click", () => state.mapId ? setZoom(state.zoom + ZOOM_STEP) : setHomeZoom(state.homeZoom + ZOOM_STEP));
   elements.zoomOut.addEventListener("click", () => state.mapId ? setZoom(state.zoom - ZOOM_STEP) : setHomeZoom(state.homeZoom - ZOOM_STEP));
   elements.zoomReset.addEventListener("click", () => state.mapId ? resetView() : resetHomeView());
+  elements.hotspotButtons.forEach((button) => button.addEventListener("click", () => setHomeHotspotStyle(button.dataset.hotspotStyle, { announceChange: true })));
   elements.regionsClose.addEventListener("click", closeRegions);
   elements.regionSearch.addEventListener("input", () => renderRegionList(elements.regionSearch.value));
   elements.install.addEventListener("click", openInstallDialog);
@@ -693,6 +716,7 @@ function applyRoute() {
 async function initialize() {
   updateDifficultyControls();
   updateZoomControls();
+  setHomeHotspotStyle(state.homeHotspotStyle);
   bindEvents();
   updateInstallButton();
   try {
