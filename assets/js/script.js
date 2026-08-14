@@ -12,12 +12,13 @@ const STORAGE_KEY = "tld-map:difficulty";
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 5;
 const ZOOM_STEP = 0.25;
+const PAN_STEP = 80;
 
 const elements = {
   homeView: document.querySelector("#home-view"), mapView: document.querySelector("#map-view"),
   homeImage: document.querySelector("#start-map-image"), viewport: document.querySelector("#map-viewport"),
   image: document.querySelector("#region-image"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
-  retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-button"), status: document.querySelector("#app-status"),
+  retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-status"), status: document.querySelector("#app-status"),
   zoomControls: document.querySelector("#zoom-controls"),
   zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"),
   regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"),
@@ -109,6 +110,7 @@ function updateDifficultyControls() {
     button.setAttribute("aria-pressed", String(button.dataset.difficulty === state.difficulty));
   });
   elements.difficultyStatus.textContent = difficultyLabel();
+  elements.difficultyButton.setAttribute("aria-label", `Change map difficulty, currently ${difficultyLabel()}`);
 }
 
 function updateZoomControls() {
@@ -200,6 +202,12 @@ function resetView() {
   updateZoomControls();
 }
 
+function panBy(x, y) {
+  state.panX += x;
+  state.panY += y;
+  applyTransform();
+}
+
 function clampPan() {
   const width = elements.image.clientWidth * state.zoom;
   const height = elements.image.clientHeight * state.zoom;
@@ -282,6 +290,7 @@ function showHome({ route = "push" } = {}) {
   elements.homeView.hidden = false;
   elements.zoomControls.hidden = true;
   elements.title.textContent = "Choose a region";
+  elements.locationButton.setAttribute("aria-label", "Choose a region");
   updateRegionSelection();
   if (route) writeRoute(route);
 }
@@ -326,6 +335,7 @@ function navigate(mapId, { route = "push" } = {}) {
   elements.mapView.hidden = false;
   elements.zoomControls.hidden = false;
   elements.title.textContent = labelFor(mapId);
+  elements.locationButton.setAttribute("aria-label", `Choose a region, currently ${labelFor(mapId)}`);
   updateRegionSelection();
   if (route) writeRoute(route);
   loadImage(url, mapId);
@@ -419,6 +429,7 @@ function bindEvents() {
       return;
     }
     if (!state.pointer || event.pointerId !== state.pointer.id) return;
+    event.preventDefault();
     const dx = event.clientX - state.pointer.x;
     const dy = event.clientY - state.pointer.y;
     if (Math.abs(dx) > 4 || Math.abs(dy) > 4) state.pointer.moved = true;
@@ -437,6 +448,7 @@ function bindEvents() {
       return;
     }
     if (!state.pointer || event.pointerId !== state.pointer.id) return;
+    event.preventDefault();
     const pointer = state.pointer;
     state.pointer = null;
     elements.viewport.classList.remove("is-dragging");
@@ -445,10 +457,17 @@ function bindEvents() {
   elements.viewport.addEventListener("pointercancel", (event) => { state.pointers.delete(event.pointerId); state.pointer = null; state.pinch = null; elements.viewport.classList.remove("is-dragging"); });
   elements.viewport.addEventListener("dragstart", (event) => event.preventDefault());
   elements.image.addEventListener("dragstart", (event) => event.preventDefault());
+  elements.viewport.addEventListener("selectstart", (event) => event.preventDefault());
+  elements.viewport.addEventListener("contextmenu", (event) => event.preventDefault());
   elements.viewport.addEventListener("keydown", (event) => {
     if (event.key === "+" || event.key === "=") { event.preventDefault(); setZoom(state.zoom + ZOOM_STEP); }
     if (event.key === "-") { event.preventDefault(); setZoom(state.zoom - ZOOM_STEP); }
     if (event.key === "0") { event.preventDefault(); resetView(); }
+    const distance = event.shiftKey ? PAN_STEP * 3 : PAN_STEP;
+    if (event.key === "ArrowLeft") { event.preventDefault(); panBy(-distance, 0); }
+    if (event.key === "ArrowRight") { event.preventDefault(); panBy(distance, 0); }
+    if (event.key === "ArrowUp") { event.preventDefault(); panBy(0, -distance); }
+    if (event.key === "ArrowDown") { event.preventDefault(); panBy(0, distance); }
   });
   window.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
