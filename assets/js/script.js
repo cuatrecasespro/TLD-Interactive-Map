@@ -1,6 +1,13 @@
 import { mapTransitions, TRANSITION_SIZE } from "./transitions.js";
 
-const DIFFICULTIES = new Set(["pilgrim", "interloper"]);
+const DIFFICULTIES = new Set(["pilgrim", "voyageur", "stalker", "interloper", "misery"]);
+const MAP_CATEGORIES = {
+  pilgrim: "pilgrim",
+  voyageur: "pilgrim",
+  stalker: "pilgrim",
+  interloper: "interloper",
+  misery: "interloper"
+};
 const STORAGE_KEY = "tld-map:difficulty";
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 5;
@@ -43,7 +50,11 @@ function labelFor(id) {
 function announce(message) { elements.status.textContent = message; }
 
 function difficultyLabel() {
-  return state.difficulty === "pilgrim" ? "Pilgrim" : "Interloper";
+  return `${state.difficulty[0].toUpperCase()}${state.difficulty.slice(1)}`;
+}
+
+function mapCategory() {
+  return MAP_CATEGORIES[state.difficulty];
 }
 
 function isStandalone() {
@@ -231,7 +242,7 @@ function activateTransition(clientX, clientY) {
 
 function preloadAdjacentMaps() {
   mapTransitions[state.mapId]?.flatMap((transition) => transition.targets ?? [transition.target]).forEach((id) => {
-    const url = state.maps[id]?.[state.difficulty];
+    const url = state.maps[id]?.[mapCategory()];
     if (url) new Image().src = url;
   });
 }
@@ -257,7 +268,7 @@ function loadImage(url, mapId) {
   elements.loading.hidden = false;
   elements.image.hidden = true;
   elements.viewport.classList.remove("is-ready");
-  elements.image.alt = `${labelFor(mapId)} map for ${state.difficulty} difficulty`;
+  elements.image.alt = `${labelFor(mapId)} map for ${difficultyLabel()} difficulty`;
   elements.image.onload = async () => {
     if (requestId !== state.requestId) return;
     try { await elements.image.decode(); } catch { /* The loaded image is still usable. */ }
@@ -280,9 +291,9 @@ function loadImage(url, mapId) {
 }
 
 function navigate(mapId, { route = "push" } = {}) {
-  const url = state.maps?.[mapId]?.[state.difficulty];
+  const url = state.maps?.[mapId]?.[mapCategory()];
   if (!url) {
-    announce(`No ${state.difficulty} map is available for ${labelFor(mapId)}.`);
+    announce(`No ${difficultyLabel()} map is available for ${labelFor(mapId)}.`);
     return;
   }
   state.mapId = mapId;
@@ -304,7 +315,7 @@ function setDifficulty(difficulty, { route = "replace" } = {}) {
   updateDifficultyControls();
   if (state.mapId) navigate(state.mapId, { route });
   else if (route) writeRoute(route);
-  announce(`Difficulty set to ${difficulty}.`);
+  announce(`Difficulty set to ${difficultyLabel()}.`);
 }
 
 function scaleHomeAreas() {
