@@ -21,8 +21,8 @@ const elements = {
   retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-status"), status: document.querySelector("#app-status"),
   zoomControls: document.querySelector("#zoom-controls"),
   zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"),
-  regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"),
-  infoButton: document.querySelector("#info-button"), info: document.querySelector("#info-panel"), infoClose: document.querySelector("#info-close"),
+  regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), worldRegion: document.querySelector("#world-region-button"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"),
+  creditsButton: document.querySelector("#credits-button"), credits: document.querySelector("#credits-panel"), creditsClose: document.querySelector("#credits-close"),
   difficultyPanel: document.querySelector("#difficulty-panel"), difficultyClose: document.querySelector("#difficulty-close"),
   difficultyButtons: [...document.querySelectorAll("[data-difficulty]")], transitionMenu: document.querySelector("#transition-menu"),
   install: document.querySelector("#install-button"), installDialog: document.querySelector("#install-dialog"),
@@ -150,9 +150,9 @@ function renderRegionList(query = "") {
     }));
 }
 
-function closeInfo() {
-  elements.info.hidden = true;
-  elements.infoButton.setAttribute("aria-expanded", "false");
+function closeCredits() {
+  elements.credits.hidden = true;
+  elements.creditsButton.setAttribute("aria-expanded", "false");
 }
 
 function closeDifficulty() {
@@ -165,17 +165,17 @@ function closeRegions() {
   elements.locationButton.setAttribute("aria-expanded", "false");
 }
 
-function openInfo() {
+function openCredits() {
   closeRegions();
   closeDifficulty();
-  elements.info.hidden = false;
-  elements.infoButton.setAttribute("aria-expanded", "true");
-  elements.infoClose.focus();
+  elements.credits.hidden = false;
+  elements.creditsButton.setAttribute("aria-expanded", "true");
+  elements.creditsClose.focus();
 }
 
 function openDifficulty() {
   closeRegions();
-  closeInfo();
+  closeCredits();
   elements.difficultyPanel.hidden = false;
   elements.difficultyButton.setAttribute("aria-expanded", "true");
   elements.difficultyClose.focus();
@@ -184,7 +184,7 @@ function openDifficulty() {
 function toggleRegions() {
   const open = elements.regions.hidden;
   if (open) {
-    closeInfo();
+    closeCredits();
     closeDifficulty();
     elements.regions.hidden = false;
     elements.locationButton.setAttribute("aria-expanded", "true");
@@ -284,7 +284,7 @@ function showHome({ route = "push" } = {}) {
   state.requestId += 1;
   hideTransitionMenu();
   closeRegions();
-  closeInfo();
+  closeCredits();
   closeDifficulty();
   elements.mapView.hidden = true;
   elements.homeView.hidden = false;
@@ -366,6 +366,7 @@ function bindEvents() {
   document.querySelectorAll("area[data-map]").forEach((area) => area.addEventListener("click", (event) => { event.preventDefault(); navigate(area.dataset.map); }));
   elements.difficultyButtons.forEach((button) => button.addEventListener("click", () => setDifficulty(button.dataset.difficulty)));
   elements.worldBrand.addEventListener("click", () => showHome());
+  elements.worldRegion.addEventListener("click", () => showHome());
   elements.locationButton.addEventListener("click", toggleRegions);
   elements.difficultyButton.addEventListener("click", openDifficulty);
   elements.retry.addEventListener("click", () => state.mapId && navigate(state.mapId, { route: false }));
@@ -385,15 +386,15 @@ function bindEvents() {
     elements.installDialog.close();
     updateInstallButton();
   });
-  elements.infoButton.addEventListener("click", () => {
-    if (elements.info.hidden) openInfo();
-    else closeInfo();
+  elements.creditsButton.addEventListener("click", () => {
+    if (elements.credits.hidden) openCredits();
+    else closeCredits();
   });
-  elements.infoClose.addEventListener("click", closeInfo);
+  elements.creditsClose.addEventListener("click", closeCredits);
   elements.difficultyClose.addEventListener("click", closeDifficulty);
   document.addEventListener("pointerdown", (event) => {
-    if (!elements.info.hidden && !elements.info.contains(event.target) && event.target !== elements.infoButton) {
-      closeInfo();
+    if (!elements.credits.hidden && !elements.credits.contains(event.target) && event.target !== elements.creditsButton) {
+      closeCredits();
     }
     if (!elements.difficultyPanel.hidden && !elements.difficultyPanel.contains(event.target) && event.target !== elements.difficultyButton) {
       closeDifficulty();
@@ -474,7 +475,7 @@ function bindEvents() {
     hideTransitionMenu();
     if (!elements.regions.hidden) closeRegions();
     else if (!elements.difficultyPanel.hidden) closeDifficulty();
-    else if (!elements.info.hidden) closeInfo();
+    else if (!elements.credits.hidden) closeCredits();
     else if (state.mapId) showHome();
   });
   window.addEventListener("resize", () => { scaleHomeAreas(); updateInstallButton(); if (state.mapId) applyTransform(); });

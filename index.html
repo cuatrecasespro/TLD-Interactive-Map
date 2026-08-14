@@ -20,12 +20,7 @@
     <header class="app-header">
       <div class="header-actions">
         <button id="world-brand" class="header-icon" type="button" aria-label="Return to world map" title="World map">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2V5Zm6-2v16m6-14v16" /></svg>
-          <span>World</span>
-        </button>
-        <button id="info-button" class="header-icon" type="button" aria-label="Open map information and credits" aria-expanded="false" aria-controls="info-panel" title="Information and credits">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 10.5v5m0-7.5v.01" /></svg>
-          <span>Info</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v9.5a1 1 0 0 1-1 1h-4.5v-6h-6v6H4.5a1 1 0 0 1-1-1V10Z" /></svg>
         </button>
       </div>
       <button id="location-button" class="header-selector map-context" type="button" aria-label="Choose a region" aria-expanded="false" aria-controls="regions-panel">
@@ -97,6 +92,11 @@
         <div><span>EXPEDITION INDEX</span><h2>Regions</h2></div>
         <button id="regions-close" class="sheet-close" type="button">Close</button>
       </div>
+      <button id="world-region-button" class="world-region-button" type="button">
+        <span>World map</span>
+        <small>Great Bear Island overview</small>
+      </button>
+      <div class="region-divider">Regions</div>
       <label class="region-search-label" for="region-search">Find a region</label>
       <input id="region-search" type="search" placeholder="Search regions" autocomplete="off" />
       <ul id="region-list" class="region-list"></ul>
@@ -117,10 +117,10 @@
       </div>
     </aside>
 
-    <aside id="info-panel" class="sheet" hidden aria-label="Map information and credits">
+    <aside id="credits-panel" class="sheet" hidden aria-label="Map credits">
       <div class="sheet-heading">
-        <div><span>MAP NOTES</span><h2>Information & credits</h2></div>
-        <button id="info-close" class="sheet-close" type="button">Close</button>
+        <div><span>MAP NOTES</span><h2>Credits</h2></div>
+        <button id="credits-close" class="sheet-close" type="button">Close</button>
       </div>
       <div class="credits-info">
         <p>This independent adaptation is based on the original interactive map created by <a href="https://elektronixx.github.io/TLD-Interactive-Map/" rel="noopener noreferrer" target="_blank">Elektronixx</a>.</p>
@@ -129,6 +129,10 @@
         <p>Tales from the Far Territory material: <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=2899955301" rel="noopener noreferrer" target="_blank">map locations guide</a> by <a href="https://steamcommunity.com/profiles/76561198054890338" rel="noopener noreferrer" target="_blank">Krueger</a>.</p>
       </div>
     </aside>
+
+    <button id="credits-button" class="floating-credits" type="button" aria-label="Open map credits" aria-expanded="false" aria-controls="credits-panel" title="Credits">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 10.5v5m0-7.5v.01" /></svg>
+    </button>
 
     <div id="transition-menu" class="transition-menu" role="menu" hidden aria-label="Choose destination"></div>
     <dialog id="install-dialog" aria-labelledby="install-title">

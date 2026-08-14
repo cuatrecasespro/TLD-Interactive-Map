@@ -65,6 +65,10 @@ main, #home-view, #map-view, #map-viewport { width: 100%; height: 100dvh; }
 .credits-info { color: var(--muted); font-size: .88rem; line-height: 1.5; }
 .credits-info p { margin: 0 0 1rem; }
 .region-search-label { display: block; margin-bottom: .35rem; color: var(--muted); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.world-region-button { display: grid; width: 100%; gap: .2rem; margin-bottom: .85rem; border-color: var(--accent); background: rgb(77 59 37 / .55); text-align: left; text-transform: none; }
+.world-region-button span { color: #fff3d8; font-size: .92rem; }
+.world-region-button small { color: var(--accent-soft); font-size: .73rem; font-weight: 500; letter-spacing: .02em; }
+.region-divider { margin: 0 0 .8rem; border-top: 1px solid rgb(184 185 170 / .25); padding-top: .8rem; color: var(--muted); font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 #region-search { width: 100%; border: 1px solid var(--line); border-radius: .15rem; padding: .7rem; background: #151b19; color: var(--paper); }
 .region-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; margin: 1rem 0 0; padding: 0; list-style: none; }
 .region-list button { width: 100%; min-height: 3.1rem; text-align: left; text-transform: none; letter-spacing: .01em; font-size: .8rem; }
@@ -78,6 +82,9 @@ dialog::backdrop { background: rgb(0 0 0 / .7); }
 dialog h2 { margin-top: 0; }
 dialog p { line-height: 1.5; }
 .dialog-close { float: right; min-height: auto; padding: .3rem .5rem; font-size: .7rem; }
+.floating-credits { position: fixed; z-index: 5; right: max(1rem, env(safe-area-inset-right)); bottom: max(1rem, env(safe-area-inset-bottom)); display: grid; width: 2.35rem; height: 2.35rem; min-height: 0; place-items: center; border: 0; border-radius: 50%; padding: 0; background: transparent; color: rgb(235 230 216 / .68); }
+.floating-credits:hover { background: transparent; color: var(--accent-soft); }
+.floating-credits svg { width: 1.55rem; height: 1.55rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.45; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; clip-path: inset(50%); }
 
 @media (max-width: 600px) {
@@ -94,6 +101,7 @@ dialog p { line-height: 1.5; }
   .sheet { bottom: max(4.5rem, calc(3.5rem + env(safe-area-inset-bottom))); width: calc(100vw - 1rem); max-height: min(33rem, calc(100dvh - 5.5rem)); padding: .85rem; }
   .region-list { grid-template-columns: 1fr; }
   .difficulty-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .floating-credits { right: max(.75rem, env(safe-area-inset-right)); bottom: max(.75rem, env(safe-area-inset-bottom)); }
 }
 
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
