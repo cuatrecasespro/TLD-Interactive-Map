@@ -13,7 +13,7 @@ const elements = {
   retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-button"), status: document.querySelector("#app-status"),
   home: document.querySelector("#home-button"), zoomControls: document.querySelector("#zoom-controls"),
   zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"),
-  regionsButton: document.querySelector("#regions-button"), regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"),
+  regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"),
   settingsButton: document.querySelector("#settings-button"), settings: document.querySelector("#settings-panel"), settingsClose: document.querySelector("#settings-close"),
   difficultyButtons: [...document.querySelectorAll("[data-difficulty]")], transitionMenu: document.querySelector("#transition-menu"),
   install: document.querySelector("#install-button"), installDialog: document.querySelector("#install-dialog"),
@@ -136,7 +136,6 @@ function closeSettings() {
 
 function closeRegions() {
   elements.regions.hidden = true;
-  elements.regionsButton.setAttribute("aria-expanded", "false");
   elements.locationButton.setAttribute("aria-expanded", "false");
 }
 
@@ -153,7 +152,6 @@ function toggleRegions() {
   if (open) {
     closeSettings();
     elements.regions.hidden = false;
-    elements.regionsButton.setAttribute("aria-expanded", "true");
     elements.locationButton.setAttribute("aria-expanded", "true");
     elements.regionSearch.focus();
   } else {
@@ -331,7 +329,6 @@ function bindEvents() {
   elements.zoomIn.addEventListener("click", () => setZoom(state.zoom + ZOOM_STEP));
   elements.zoomOut.addEventListener("click", () => setZoom(state.zoom - ZOOM_STEP));
   elements.zoomReset.addEventListener("click", resetView);
-  elements.regionsButton.addEventListener("click", toggleRegions);
   elements.regionsClose.addEventListener("click", closeRegions);
   elements.regionSearch.addEventListener("input", () => renderRegionList(elements.regionSearch.value));
   elements.install.addEventListener("click", openInstallDialog);
@@ -358,7 +355,7 @@ function bindEvents() {
     if (!elements.settings.hidden && !elements.settings.contains(event.target) && event.target !== elements.settingsButton) {
       closeSettings();
     }
-    if (!elements.regions.hidden && !elements.regions.contains(event.target) && event.target !== elements.regionsButton) {
+    if (!elements.regions.hidden && !elements.regions.contains(event.target) && event.target !== elements.locationButton) {
       closeRegions();
     }
     if (!elements.transitionMenu.hidden && !elements.transitionMenu.contains(event.target)) hideTransitionMenu();
