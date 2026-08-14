@@ -107,7 +107,9 @@ function writeRoute(mode = "replace") {
 
 function updateDifficultyControls() {
   elements.difficultyButtons.forEach((button) => {
-    button.setAttribute("aria-pressed", String(button.dataset.difficulty === state.difficulty));
+    const selected = button.dataset.difficulty === state.difficulty;
+    button.setAttribute("aria-pressed", String(selected));
+    button.setAttribute("aria-current", String(selected));
   });
   elements.difficultyStatus.textContent = difficultyLabel();
   elements.difficultyButton.setAttribute("aria-label", `Change map difficulty, currently ${difficultyLabel()}`);
