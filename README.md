@@ -2,6 +2,8 @@
 
 A static interactive map viewer for *The Long Dark*. It displays region maps for Pilgrim/Voyageur/Stalker and Interloper/Misery, supports pan and zoom, and lets players follow region transitions.
 
+This is an independent, modernized and responsive adaptation of the original [TLD Interactive Map by Elektronixx](https://elektronixx.github.io/TLD-Interactive-Map/). It is not affiliated with or endorsed by the original author.
+
 ## Development
 
 No dependency installation is needed. Serve the repository with any static HTTP server, then open `index.html` through that server.
