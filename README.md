@@ -4,6 +4,8 @@ A static interactive map viewer for *The Long Dark*. It displays region maps for
 
 This is an independent, modernized and responsive adaptation of the original [TLD Interactive Map by Elektronixx](https://elektronixx.github.io/TLD-Interactive-Map/). It is not affiliated with or endorsed by the original author.
 
+The map images and artwork remain the work of their Steam community creators. In particular, this version uses material from [HokuOwl's Updated Region Maps [2024]](https://steamcommunity.com/sharedfiles/filedetails/?id=3255435617) and [Krueger's Tales from the Far Territory map locations guide](https://steamcommunity.com/sharedfiles/filedetails/?id=2899955301). This project does not claim ownership of that material.
+
 ## Development
 
 No dependency installation is needed. Serve the repository with any static HTTP server, then open `index.html` through that server.
