@@ -29,7 +29,11 @@ const elements = {
   installInstructions: document.querySelector("#install-instructions"), installClose: document.querySelector("#install-close"), nativeInstall: document.querySelector("#native-install-button")
 };
 
-const state = { maps: null, mapId: null, difficulty: readDifficulty(), zoom: 1, panX: 0, panY: 0, requestId: 0, pointer: null, pointers: new Map(), pinch: null };
+const state = {
+  maps: null, mapId: null, difficulty: readDifficulty(),
+  zoom: 1, panX: 0, panY: 0, requestId: 0, pointer: null, pointers: new Map(), pinch: null,
+  homeZoom: 1, homePanX: 0, homePanY: 0, homePointer: null, homePointers: new Map(), homePinch: null
+};
 let deferredInstallPrompt = null;
 
 function readDifficulty() {
@@ -116,11 +120,12 @@ function updateDifficultyControls() {
 }
 
 function updateZoomControls() {
-  const percentage = Math.round(state.zoom * 100);
+  const zoom = state.mapId ? state.zoom : state.homeZoom;
+  const percentage = Math.round(zoom * 100);
   elements.zoomReset.textContent = `${percentage}%`;
   elements.zoomReset.setAttribute("aria-label", `Reset zoom, currently ${percentage} percent`);
-  elements.zoomOut.disabled = state.zoom <= MIN_ZOOM;
-  elements.zoomIn.disabled = state.zoom >= MAX_ZOOM;
+  elements.zoomOut.disabled = zoom <= MIN_ZOOM;
+  elements.zoomIn.disabled = zoom >= MAX_ZOOM;
 }
 
 function updateRegionSelection() {
@@ -234,6 +239,70 @@ function fitMapImage() {
   elements.image.style.height = `${Math.floor(elements.image.naturalHeight * scale)}px`;
 }
 
+function fitHomeImage() {
+  if (!elements.homeImage.naturalWidth || !elements.homeView.clientWidth || !elements.homeView.clientHeight) return;
+  const scale = Math.min(
+    elements.homeView.clientWidth / elements.homeImage.naturalWidth,
+    elements.homeView.clientHeight / elements.homeImage.naturalHeight
+  );
+  elements.homeImage.style.width = `${Math.floor(elements.homeImage.naturalWidth * scale)}px`;
+  elements.homeImage.style.height = `${Math.floor(elements.homeImage.naturalHeight * scale)}px`;
+}
+
+function clampHomePan() {
+  const width = elements.homeImage.clientWidth * state.homeZoom;
+  const height = elements.homeImage.clientHeight * state.homeZoom;
+  const maxX = Math.max(0, (width - elements.homeView.clientWidth) / 2);
+  const maxY = Math.max(0, (height - elements.homeView.clientHeight) / 2);
+  state.homePanX = Math.min(maxX, Math.max(-maxX, state.homePanX));
+  state.homePanY = Math.min(maxY, Math.max(-maxY, state.homePanY));
+}
+
+function applyHomeTransform() {
+  clampHomePan();
+  elements.homeImage.style.transform = `translate(${state.homePanX}px, ${state.homePanY}px) scale(${state.homeZoom})`;
+}
+
+function resetHomeView() {
+  state.homeZoom = 1;
+  state.homePanX = 0;
+  state.homePanY = 0;
+  applyHomeTransform();
+  updateZoomControls();
+}
+
+function panHomeBy(x, y) {
+  state.homePanX += x;
+  state.homePanY += y;
+  applyHomeTransform();
+}
+
+function setHomeZoom(nextZoom, clientX, clientY) {
+  const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
+  if (zoom === state.homeZoom) return;
+  const rect = elements.homeView.getBoundingClientRect();
+  const x = clientX ?? rect.left + rect.width / 2;
+  const y = clientY ?? rect.top + rect.height / 2;
+  const relativeX = (x - (rect.left + rect.width / 2) - state.homePanX) / state.homeZoom;
+  const relativeY = (y - (rect.top + rect.height / 2) - state.homePanY) / state.homeZoom;
+  state.homeZoom = zoom;
+  state.homePanX = x - (rect.left + rect.width / 2) - relativeX * zoom;
+  state.homePanY = y - (rect.top + rect.height / 2) - relativeY * zoom;
+  applyHomeTransform();
+  updateZoomControls();
+}
+
+function homeMapAt(clientX, clientY) {
+  const rect = elements.homeImage.getBoundingClientRect();
+  if (!rect.width || !elements.homeImage.naturalWidth) return null;
+  const x = (clientX - rect.left) / (rect.width / elements.homeImage.naturalWidth);
+  const y = (clientY - rect.top) / (rect.height / elements.homeImage.naturalHeight);
+  return [...document.querySelectorAll("area[data-map]")].find((area) => {
+    const coords = (area.dataset.originalCoords ?? area.getAttribute("coords")).split(",").map(Number);
+    return x >= coords[0] && x <= coords[2] && y >= coords[1] && y <= coords[3];
+  });
+}
+
 function setZoom(nextZoom, clientX, clientY) {
   const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
   if (zoom === state.zoom) return;
@@ -300,7 +369,9 @@ function showHome({ route = "push" } = {}) {
   closeDifficulty();
   elements.mapView.hidden = true;
   elements.homeView.hidden = false;
-  elements.zoomControls.hidden = true;
+  elements.zoomControls.hidden = false;
+  fitHomeImage();
+  resetHomeView();
   elements.title.textContent = "Choose a region";
   elements.locationButton.setAttribute("aria-label", "Choose a region");
   updateRegionSelection();
@@ -383,9 +454,9 @@ function bindEvents() {
   elements.locationButton.addEventListener("click", toggleRegions);
   elements.difficultyButton.addEventListener("click", openDifficulty);
   elements.retry.addEventListener("click", () => state.mapId && navigate(state.mapId, { route: false }));
-  elements.zoomIn.addEventListener("click", () => setZoom(state.zoom + ZOOM_STEP));
-  elements.zoomOut.addEventListener("click", () => setZoom(state.zoom - ZOOM_STEP));
-  elements.zoomReset.addEventListener("click", resetView);
+  elements.zoomIn.addEventListener("click", () => state.mapId ? setZoom(state.zoom + ZOOM_STEP) : setHomeZoom(state.homeZoom + ZOOM_STEP));
+  elements.zoomOut.addEventListener("click", () => state.mapId ? setZoom(state.zoom - ZOOM_STEP) : setHomeZoom(state.homeZoom - ZOOM_STEP));
+  elements.zoomReset.addEventListener("click", () => state.mapId ? resetView() : resetHomeView());
   elements.regionsClose.addEventListener("click", closeRegions);
   elements.regionSearch.addEventListener("input", () => renderRegionList(elements.regionSearch.value));
   elements.install.addEventListener("click", openInstallDialog);
@@ -417,6 +488,69 @@ function bindEvents() {
     }
     if (!elements.transitionMenu.hidden && !elements.transitionMenu.contains(event.target)) hideTransitionMenu();
   });
+  elements.homeView.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    setHomeZoom(state.homeZoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), event.clientX, event.clientY);
+  }, { passive: false });
+  elements.homeView.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 && event.pointerType === "mouse") return;
+    event.preventDefault();
+    elements.homeView.focus({ preventScroll: true });
+    elements.homeView.setPointerCapture(event.pointerId);
+    state.homePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (state.homePointers.size === 2) {
+      const [first, second] = [...state.homePointers.values()];
+      state.homePinch = { distance: Math.hypot(second.x - first.x, second.y - first.y), zoom: state.homeZoom };
+      state.homePointer = null;
+    } else {
+      state.homePointer = { id: event.pointerId, x: event.clientX, y: event.clientY, panX: state.homePanX, panY: state.homePanY, moved: false };
+    }
+    elements.homeView.classList.add("is-dragging");
+  });
+  elements.homeView.addEventListener("pointermove", (event) => {
+    if (!state.homePointers.has(event.pointerId)) return;
+    state.homePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (state.homePinch && state.homePointers.size === 2) {
+      const [first, second] = [...state.homePointers.values()];
+      const distance = Math.hypot(second.x - first.x, second.y - first.y);
+      setHomeZoom(state.homePinch.zoom * (distance / state.homePinch.distance), (first.x + second.x) / 2, (first.y + second.y) / 2);
+      return;
+    }
+    if (!state.homePointer || event.pointerId !== state.homePointer.id) return;
+    const dx = event.clientX - state.homePointer.x;
+    const dy = event.clientY - state.homePointer.y;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) state.homePointer.moved = true;
+    state.homePanX = state.homePointer.panX + dx;
+    state.homePanY = state.homePointer.panY + dy;
+    applyHomeTransform();
+  });
+  elements.homeView.addEventListener("pointerup", (event) => {
+    state.homePointers.delete(event.pointerId);
+    if (state.homePinch) {
+      state.homePinch = null;
+      const [remainingId, remaining] = [...state.homePointers.entries()][0] ?? [];
+      state.homePointer = remaining ? { id: remainingId, x: remaining.x, y: remaining.y, panX: state.homePanX, panY: state.homePanY, moved: true } : null;
+      if (!remaining) elements.homeView.classList.remove("is-dragging");
+      return;
+    }
+    if (!state.homePointer || event.pointerId !== state.homePointer.id) return;
+    const pointer = state.homePointer;
+    state.homePointer = null;
+    elements.homeView.classList.remove("is-dragging");
+    if (!pointer.moved) {
+      const area = homeMapAt(event.clientX, event.clientY);
+      if (area) navigate(area.dataset.map);
+    }
+  });
+  elements.homeView.addEventListener("pointercancel", (event) => {
+    state.homePointers.delete(event.pointerId);
+    state.homePointer = null;
+    state.homePinch = null;
+    elements.homeView.classList.remove("is-dragging");
+  });
+  elements.homeView.addEventListener("dragstart", (event) => event.preventDefault());
+  elements.homeView.addEventListener("selectstart", (event) => event.preventDefault());
+  elements.homeView.addEventListener("contextmenu", (event) => event.preventDefault());
   elements.viewport.addEventListener("wheel", (event) => { event.preventDefault(); setZoom(state.zoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), event.clientX, event.clientY); }, { passive: false });
   elements.viewport.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 && event.pointerType === "mouse") return;
@@ -483,6 +617,16 @@ function bindEvents() {
     if (event.key === "ArrowUp") { event.preventDefault(); panBy(0, -distance); }
     if (event.key === "ArrowDown") { event.preventDefault(); panBy(0, distance); }
   });
+  elements.homeView.addEventListener("keydown", (event) => {
+    if (event.key === "+" || event.key === "=") { event.preventDefault(); setHomeZoom(state.homeZoom + ZOOM_STEP); }
+    if (event.key === "-") { event.preventDefault(); setHomeZoom(state.homeZoom - ZOOM_STEP); }
+    if (event.key === "0") { event.preventDefault(); resetHomeView(); }
+    const distance = event.shiftKey ? PAN_STEP * 3 : PAN_STEP;
+    if (event.key === "ArrowLeft") { event.preventDefault(); panHomeBy(-distance, 0); }
+    if (event.key === "ArrowRight") { event.preventDefault(); panHomeBy(distance, 0); }
+    if (event.key === "ArrowUp") { event.preventDefault(); panHomeBy(0, -distance); }
+    if (event.key === "ArrowDown") { event.preventDefault(); panHomeBy(0, distance); }
+  });
   window.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
     hideTransitionMenu();
@@ -494,6 +638,8 @@ function bindEvents() {
   window.addEventListener("resize", () => {
     scaleHomeAreas();
     updateInstallButton();
+    fitHomeImage();
+    applyHomeTransform();
     if (state.mapId) {
       fitMapImage();
       applyTransform();
@@ -510,7 +656,11 @@ function bindEvents() {
     announce("TLD Map installed.");
   });
   window.addEventListener("popstate", () => applyRoute());
-  elements.homeImage.addEventListener("load", scaleHomeAreas);
+  elements.homeImage.addEventListener("load", () => {
+    fitHomeImage();
+    scaleHomeAreas();
+    resetHomeView();
+  });
 }
 
 function applyRoute() {

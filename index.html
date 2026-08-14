@@ -34,7 +34,7 @@
     </header>
 
     <main>
-      <section id="home-view" aria-label="World map">
+      <section id="home-view" tabindex="0" aria-label="World map" aria-describedby="home-map-help">
         <img id="start-map-image" src="assets/img/homemap.png" alt="World map of Great Bear Island. Choose a labelled region below." usemap="#map-links" draggable="false" />
         <map name="map-links">
           <area alt="Forlorn Muskeg" href="#map=forlorn-muskeg" coords="1747,1332,2046,1394" shape="rect" data-map="forlorn-muskeg" />
@@ -62,6 +62,7 @@
           <area alt="Langston Mine" href="#map=langston-mine" coords="910,1035,1025,1100" shape="rect" data-map="langston-mine" />
         </map>
       </section>
+      <p id="home-map-help" class="visually-hidden">Drag to pan the world map. Use the mouse wheel or pinch to zoom. Press plus or minus to zoom, zero to reset, and arrow keys to pan.</p>
 
       <section id="map-view" hidden aria-label="Region map">
         <div id="map-viewport" tabindex="0" aria-describedby="map-help">
