@@ -36,6 +36,7 @@ const state = {
   homeZoom: 1, homePanX: 0, homePanY: 0, homePointer: null, homePointers: new Map(), homePinch: null, homeHotspotStyle: readHotspotStyle()
 };
 let deferredInstallPrompt = null;
+let viewportSyncFrame = 0;
 
 function readDifficulty() {
   try {
@@ -281,6 +282,30 @@ function fitHomeImage() {
   elements.homeStage.style.width = elements.homeImage.style.width;
   elements.homeStage.style.height = elements.homeImage.style.height;
   syncHomeHotspots();
+}
+
+function syncViewportHeight() {
+  const height = window.visualViewport?.height ?? window.innerHeight;
+  document.documentElement.style.setProperty("--app-height", `${Math.round(height)}px`);
+}
+
+function refreshMapLayout() {
+  scaleHomeAreas();
+  updateInstallButton();
+  fitHomeImage();
+  applyHomeTransform();
+  if (state.mapId) {
+    fitMapImage();
+    applyTransform();
+  }
+}
+
+function scheduleViewportSync() {
+  cancelAnimationFrame(viewportSyncFrame);
+  viewportSyncFrame = requestAnimationFrame(() => {
+    syncViewportHeight();
+    refreshMapLayout();
+  });
 }
 
 function syncHomeHotspots() {
@@ -694,16 +719,9 @@ function bindEvents() {
     else if (!elements.hotspotOptions.hidden) closeHotspotOptions();
     else if (state.mapId) showHome();
   });
-  window.addEventListener("resize", () => {
-    scaleHomeAreas();
-    updateInstallButton();
-    fitHomeImage();
-    applyHomeTransform();
-    if (state.mapId) {
-      fitMapImage();
-      applyTransform();
-    }
-  });
+  window.addEventListener("resize", scheduleViewportSync);
+  window.addEventListener("orientationchange", scheduleViewportSync);
+  window.visualViewport?.addEventListener("resize", scheduleViewportSync);
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
     deferredInstallPrompt = event;
@@ -730,6 +748,7 @@ function applyRoute() {
 }
 
 async function initialize() {
+  syncViewportHeight();
   updateDifficultyControls();
   updateZoomControls();
   setHomeHotspotStyle(state.homeHotspotStyle);
