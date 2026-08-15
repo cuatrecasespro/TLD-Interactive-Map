@@ -109,6 +109,9 @@ dialog p { color: var(--muted); font-size: .88rem; line-height: 1.5; }
 .floating-credits { position: fixed; z-index: 5; right: max(1rem, env(safe-area-inset-right)); bottom: max(1rem, env(safe-area-inset-bottom)); display: grid; width: 2.35rem; height: 2.35rem; min-height: 0; place-items: center; border: 0; border-radius: 50%; padding: 0; background: transparent; color: rgb(241 245 241 / .6); }
 .floating-credits:hover { background: rgb(0 0 0 / .2); color: var(--text); }
 .floating-credits svg { width: 1.45rem; height: 1.45rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.4; }
+.update-notice { position: fixed; z-index: 20; bottom: max(5.25rem, calc(4rem + env(safe-area-inset-bottom))); left: 50%; width: min(26rem, calc(100vw - 2rem)); transform: translateX(-50%); }
+.update-notice button { width: 100%; border-color: var(--accent); background: var(--accent); color: var(--accent-ink); box-shadow: 0 14px 34px rgb(0 0 0 / .36); text-transform: none; }
+.update-notice button:hover { background: #a5e6b5; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; clip-path: inset(50%); }
 
 @media (max-width: 600px) {

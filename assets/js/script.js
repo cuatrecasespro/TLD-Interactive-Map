@@ -27,7 +27,8 @@ const elements = {
   difficultyPanel: document.querySelector("#difficulty-panel"), difficultyClose: document.querySelector("#difficulty-close"),
   difficultyButtons: [...document.querySelectorAll("[data-difficulty]")], transitionMenu: document.querySelector("#transition-menu"),
   install: document.querySelector("#install-button"), installDialog: document.querySelector("#install-dialog"),
-  installInstructions: document.querySelector("#install-instructions"), installClose: document.querySelector("#install-close"), nativeInstall: document.querySelector("#native-install-button")
+  installInstructions: document.querySelector("#install-instructions"), installClose: document.querySelector("#install-close"), nativeInstall: document.querySelector("#native-install-button"),
+  updateNotice: document.querySelector("#update-notice"), updateApp: document.querySelector("#update-app-button")
 };
 
 const state = {
@@ -37,6 +38,8 @@ const state = {
 };
 let deferredInstallPrompt = null;
 let viewportSyncFrame = 0;
+let updateRegistration = null;
+let reloadForUpdate = false;
 
 function readDifficulty() {
   try {
@@ -116,6 +119,24 @@ function installInstructions() {
 
 function updateInstallButton() {
   elements.install.hidden = !isMobileDevice() || isStandalone();
+}
+
+function showAppUpdate(registration) {
+  if (!isStandalone()) return;
+  updateRegistration = registration;
+  elements.updateNotice.hidden = false;
+  announce("New version available. Activate the update to continue.");
+}
+
+function watchForAppUpdate(registration) {
+  if (registration.waiting) showAppUpdate(registration);
+  registration.addEventListener("updatefound", () => {
+    const worker = registration.installing;
+    if (!worker) return;
+    worker.addEventListener("statechange", () => {
+      if (worker.state === "installed" && navigator.serviceWorker.controller) showAppUpdate(registration);
+    });
+  });
 }
 
 function openInstallDialog() {
@@ -542,6 +563,12 @@ function bindEvents() {
   elements.regionsClose.addEventListener("click", closeRegions);
   elements.regionSearch.addEventListener("input", () => renderRegionList(elements.regionSearch.value));
   elements.install.addEventListener("click", openInstallDialog);
+  elements.updateApp.addEventListener("click", () => {
+    if (!updateRegistration?.waiting) return;
+    reloadForUpdate = true;
+    elements.updateApp.disabled = true;
+    updateRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
+  });
   elements.installClose.addEventListener("click", () => elements.installDialog.close());
   elements.nativeInstall.addEventListener("click", async () => {
     if (!deferredInstallPrompt) return;
@@ -770,5 +797,13 @@ async function initialize() {
 initialize();
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch((error) => console.error("Unable to register service worker", error)));
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloadForUpdate) window.location.reload();
+  });
+  window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js")
+    .then((registration) => {
+      watchForAppUpdate(registration);
+      return registration.update();
+    })
+    .catch((error) => console.error("Unable to register service worker", error)));
 }
