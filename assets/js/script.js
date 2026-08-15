@@ -129,14 +129,14 @@ function showAppUpdate(registration) {
 }
 
 function watchForAppUpdate(registration) {
-  if (registration.waiting) showAppUpdate(registration);
-  registration.addEventListener("updatefound", () => {
-    const worker = registration.installing;
-    if (!worker) return;
+  const watchWorker = (worker) => {
     worker.addEventListener("statechange", () => {
       if (worker.state === "installed" && navigator.serviceWorker.controller) showAppUpdate(registration);
     });
-  });
+  };
+  if (registration.waiting) showAppUpdate(registration);
+  if (registration.installing) watchWorker(registration.installing);
+  registration.addEventListener("updatefound", () => registration.installing && watchWorker(registration.installing));
 }
 
 function openInstallDialog() {
