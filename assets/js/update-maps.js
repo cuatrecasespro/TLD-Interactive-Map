@@ -126,7 +126,7 @@ async function updateMaps() {
 
         maps[mapName] = {
           pilgrim: links[0],
-          interloper: links[1] ?? null,
+          interloper: links[1] ?? links[0],
         };
         console.log(`Added "${mapName}" with ${links.length} link(s)`);
       }
