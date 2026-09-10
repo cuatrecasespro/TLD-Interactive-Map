@@ -75,8 +75,11 @@ main, #home-view, #map-view, #map-viewport { width: 100%; height: var(--app-heig
 .player-control button:last-child { border-right: 0; }
 .player-control button[aria-pressed="true"] { background: rgb(134 214 155 / .18); color: var(--text); }
 .player-control button:hover { background: rgb(255 255 255 / .09); color: var(--text); }
-.orientation-control { position: fixed; z-index: 5; bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 3rem); left: max(1rem, env(safe-area-inset-left)); }
-.orientation-control button { min-height: 2.35rem; padding: .45rem .7rem; background: var(--surface); color: var(--muted); box-shadow: 0 10px 30px rgb(0 0 0 / .25); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.orientation-control { position: fixed; z-index: 5; bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 3rem); left: max(1rem, env(safe-area-inset-left)); display: grid; grid-template-columns: 1fr auto; gap: .35rem .65rem; width: min(15rem, calc(100vw - 2rem)); border: 1px solid var(--border); border-radius: 12px; padding: .55rem .65rem; background: var(--surface); box-shadow: 0 10px 30px rgb(0 0 0 / .25); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.orientation-control label { grid-column: 1 / -1; display: flex; justify-content: space-between; color: var(--muted); font-size: .68rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.orientation-control output { color: var(--text); }
+.orientation-control input { width: 100%; accent-color: var(--accent); }
+.orientation-control button { min-height: 1.8rem; padding: .25rem .5rem; background: transparent; color: var(--muted); font-size: .68rem; }
 .orientation-control button:hover { color: var(--text); }
 
 .sheet, .transition-menu { position: fixed; z-index: 10; }

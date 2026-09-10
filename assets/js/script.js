@@ -26,7 +26,7 @@ const elements = {
   zoomControls: document.querySelector("#zoom-controls"),
   zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"), hotspotControl: document.querySelector("#hotspot-control"), hotspotToggle: document.querySelector("#hotspot-toggle"), hotspotOptions: document.querySelector("#hotspot-options"), hotspotButtons: [...document.querySelectorAll("[data-hotspot-style]")],
   playerControl: document.querySelector("#player-control"), playerToggle: document.querySelector("#player-toggle"), playerClear: document.querySelector("#player-clear"),
-  orientationControl: document.querySelector("#orientation-control"), rotateMap: document.querySelector("#rotate-map"),
+  orientationControl: document.querySelector("#orientation-control"), orientationInput: document.querySelector("#orientation-input"), orientationValue: document.querySelector("#orientation-value"), orientationReset: document.querySelector("#orientation-reset"),
   regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), worldRegion: document.querySelector("#world-region-button"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"), regionResultsCount: document.querySelector("#region-results-count"),
   creditsButton: document.querySelector("#credits-button"), credits: document.querySelector("#credits-panel"), creditsClose: document.querySelector("#credits-close"),
   difficultyPanel: document.querySelector("#difficulty-panel"), difficultyClose: document.querySelector("#difficulty-close"),
@@ -40,7 +40,7 @@ const state = {
   maps: null, mapId: null, difficulty: readDifficulty(),
   zoom: 1, panX: 0, panY: 0, requestId: 0, pointer: null, pointers: new Map(), pinch: null,
   homeZoom: 1, homePanX: 0, homePanY: 0, homePointer: null, homePointers: new Map(), homePinch: null, homeHotspotStyle: readHotspotStyle(),
-  playerPositions: readPlayerPositions(), isPlacingPlayer: false, playerPointer: null, orientation: readOrientation()
+  playerPositions: readPlayerPositions(), isPlacingPlayer: false, playerPointer: null, playerDragPosition: null, orientation: readOrientation()
 };
 let deferredInstallPrompt = null;
 let viewportSyncFrame = 0;
@@ -83,7 +83,7 @@ function savePlayerPositions() {
 function readOrientation() {
   try {
     const orientation = Number(localStorage.getItem(ORIENTATION_STORAGE_KEY));
-    return [0, 90, 180, 270].includes(orientation) ? orientation : 0;
+    return Number.isInteger(orientation) && orientation >= 0 && orientation < 360 ? orientation : 0;
   } catch { return 0; }
 }
 
@@ -311,9 +311,11 @@ function panBy(x, y) {
 }
 
 function clampPan() {
-  const isQuarterTurn = state.orientation % 180 !== 0;
-  const width = (isQuarterTurn ? elements.image.clientHeight : elements.image.clientWidth) * state.zoom;
-  const height = (isQuarterTurn ? elements.image.clientWidth : elements.image.clientHeight) * state.zoom;
+  const angle = state.orientation * Math.PI / 180;
+  const imageWidth = elements.image.clientWidth * state.zoom;
+  const imageHeight = elements.image.clientHeight * state.zoom;
+  const width = Math.abs(imageWidth * Math.cos(angle)) + Math.abs(imageHeight * Math.sin(angle));
+  const height = Math.abs(imageWidth * Math.sin(angle)) + Math.abs(imageHeight * Math.cos(angle));
   const maxX = Math.max(0, (width - elements.viewport.clientWidth) / 2);
   const maxY = Math.max(0, (height - elements.viewport.clientHeight) / 2);
   state.panX = Math.min(maxX, Math.max(-maxX, state.panX));
@@ -340,13 +342,13 @@ function mapPointAt(clientX, clientY) {
   };
 }
 
-function rotateMap() {
-  state.orientation = (state.orientation + 90) % 360;
+function setOrientation(orientation, { announceChange = false } = {}) {
+  state.orientation = ((Math.round(orientation) % 360) + 360) % 360;
   saveOrientation();
   fitMapImage();
   applyTransform();
   updatePlayerControls();
-  announce(`Map rotated to ${state.orientation} degrees.`);
+  if (announceChange) announce(`Map rotated to ${state.orientation} degrees.`);
 }
 
 function updatePlayerControls() {
@@ -356,11 +358,14 @@ function updatePlayerControls() {
   elements.playerToggle.setAttribute("aria-pressed", String(state.isPlacingPlayer));
   elements.playerClear.hidden = !hasPosition;
   elements.orientationControl.hidden = !state.mapId;
-  elements.rotateMap.setAttribute("aria-label", `Rotate map clockwise. Current orientation: ${state.orientation} degrees.`);
+  elements.orientationInput.value = String(state.orientation);
+  elements.orientationValue.value = `${state.orientation}°`;
+  elements.orientationValue.textContent = `${state.orientation}°`;
+  elements.orientationReset.disabled = state.orientation === 0;
 }
 
 function renderPlayerMarker() {
-  const position = state.playerPositions[state.mapId];
+  const position = state.playerDragPosition ?? state.playerPositions[state.mapId];
   const imageRect = elements.image.getBoundingClientRect();
   if (!position || !imageRect.width || !imageRect.height || elements.image.hidden) {
     elements.playerMarker.hidden = true;
@@ -374,16 +379,21 @@ function renderPlayerMarker() {
   elements.playerMarker.hidden = false;
 }
 
-function placePlayerPosition(clientX, clientY) {
+function placePlayerPosition(clientX, clientY, { persist = true } = {}) {
   const point = mapPointAt(clientX, clientY);
   if (!state.mapId || !point) return false;
-  state.playerPositions[state.mapId] = {
+  const position = {
     x: Math.min(1, Math.max(0, point.x)),
     y: Math.min(1, Math.max(0, point.y))
   };
-  savePlayerPositions();
+  if (persist) {
+    state.playerPositions[state.mapId] = position;
+    savePlayerPositions();
+    updatePlayerControls();
+  } else {
+    state.playerDragPosition = position;
+  }
   renderPlayerMarker();
-  updatePlayerControls();
   return true;
 }
 
@@ -395,6 +405,7 @@ function togglePlayerPlacement() {
 
 function clearPlayerPosition() {
   if (!state.mapId) return;
+  state.playerDragPosition = null;
   delete state.playerPositions[state.mapId];
   savePlayerPositions();
   renderPlayerMarker();
@@ -404,10 +415,12 @@ function clearPlayerPosition() {
 
 function fitMapImage() {
   if (!elements.image.naturalWidth || !elements.viewport.clientWidth || !elements.viewport.clientHeight) return;
-  const isQuarterTurn = state.orientation % 180 !== 0;
+  const angle = state.orientation * Math.PI / 180;
+  const rotatedWidth = elements.image.naturalWidth * Math.abs(Math.cos(angle)) + elements.image.naturalHeight * Math.abs(Math.sin(angle));
+  const rotatedHeight = elements.image.naturalWidth * Math.abs(Math.sin(angle)) + elements.image.naturalHeight * Math.abs(Math.cos(angle));
   const scale = Math.min(
-    elements.viewport.clientWidth / (isQuarterTurn ? elements.image.naturalHeight : elements.image.naturalWidth),
-    elements.viewport.clientHeight / (isQuarterTurn ? elements.image.naturalWidth : elements.image.naturalHeight)
+    elements.viewport.clientWidth / rotatedWidth,
+    elements.viewport.clientHeight / rotatedHeight
   );
   elements.image.style.width = `${Math.floor(elements.image.naturalWidth * scale)}px`;
   elements.image.style.height = `${Math.floor(elements.image.naturalHeight * scale)}px`;
@@ -581,6 +594,7 @@ function preloadAdjacentMaps() {
 
 function showHome({ route = "push" } = {}) {
   state.mapId = null;
+  state.playerDragPosition = null;
   state.requestId += 1;
   hideTransitionMenu();
   closeRegions();
@@ -639,6 +653,7 @@ function navigate(mapId, { route = "push" } = {}) {
     return;
   }
   state.mapId = mapId;
+  state.playerDragPosition = null;
   saveLastView();
   hideTransitionMenu();
   elements.homeView.hidden = true;
@@ -691,7 +706,9 @@ function bindEvents() {
   elements.hotspotButtons.forEach((button) => button.addEventListener("click", () => setHomeHotspotStyle(button.dataset.hotspotStyle, { announceChange: true })));
   elements.playerToggle.addEventListener("click", togglePlayerPlacement);
   elements.playerClear.addEventListener("click", clearPlayerPosition);
-  elements.rotateMap.addEventListener("click", rotateMap);
+  elements.orientationInput.addEventListener("input", () => setOrientation(Number(elements.orientationInput.value)));
+  elements.orientationInput.addEventListener("change", () => announce(`Map rotated to ${state.orientation} degrees.`));
+  elements.orientationReset.addEventListener("click", () => setOrientation(0, { announceChange: true }));
   elements.regionsClose.addEventListener("click", closeRegions);
   elements.regionSearch.addEventListener("input", () => renderRegionList(elements.regionSearch.value));
   elements.install.addEventListener("click", openInstallDialog);
@@ -858,20 +875,33 @@ function bindEvents() {
     if (event.button !== 0 && event.pointerType === "mouse") return;
     event.preventDefault();
     event.stopPropagation();
-    state.playerPointer = { id: event.pointerId, moved: false };
+    const markerRect = elements.playerMarker.getBoundingClientRect();
+    state.playerPointer = {
+      id: event.pointerId,
+      moved: false,
+      offsetX: event.clientX - (markerRect.left + markerRect.width / 2),
+      offsetY: event.clientY - (markerRect.top + markerRect.height)
+    };
     elements.playerMarker.setPointerCapture(event.pointerId);
   });
   elements.playerMarker.addEventListener("pointermove", (event) => {
     if (event.pointerId !== state.playerPointer?.id) return;
     state.playerPointer.moved = true;
-    placePlayerPosition(event.clientX, event.clientY);
+    placePlayerPosition(event.clientX - state.playerPointer.offsetX, event.clientY - state.playerPointer.offsetY, { persist: false });
   });
   elements.playerMarker.addEventListener("pointerup", (event) => {
     if (event.pointerId !== state.playerPointer?.id) return;
-    if (state.playerPointer.moved) announce("Character position saved.");
+    if (state.playerPointer.moved && state.playerDragPosition) {
+      state.playerPositions[state.mapId] = state.playerDragPosition;
+      state.playerDragPosition = null;
+      savePlayerPositions();
+      updatePlayerControls();
+      renderPlayerMarker();
+      announce("Character position saved.");
+    }
     state.playerPointer = null;
   });
-  elements.playerMarker.addEventListener("pointercancel", () => { state.playerPointer = null; });
+  elements.playerMarker.addEventListener("pointercancel", () => { state.playerPointer = null; state.playerDragPosition = null; renderPlayerMarker(); });
   elements.viewport.addEventListener("dragstart", (event) => event.preventDefault());
   elements.image.addEventListener("dragstart", (event) => event.preventDefault());
   elements.viewport.addEventListener("selectstart", (event) => event.preventDefault());

@@ -104,7 +104,9 @@
       <button id="player-clear" type="button" hidden>Clear</button>
     </div>
     <div id="orientation-control" class="orientation-control" hidden>
-      <button id="rotate-map" type="button">Rotate 90°</button>
+      <label for="orientation-input">Map orientation <output id="orientation-value">0°</output></label>
+      <input id="orientation-input" type="range" min="0" max="359" value="0" />
+      <button id="orientation-reset" type="button">North up</button>
     </div>
 
     <aside id="regions-panel" class="sheet" hidden aria-label="Choose a region">
