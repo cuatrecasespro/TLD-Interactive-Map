@@ -52,6 +52,9 @@ main, #home-view, #map-view, #map-viewport { width: 100%; height: var(--app-heig
 #map-viewport.is-dragging { cursor: grabbing; }
 #region-image { display: block; width: auto; height: auto; max-width: none; max-height: none; transform-origin: center; user-select: none; pointer-events: none; -webkit-user-drag: none; }
 #map-viewport.is-ready #region-image { will-change: transform; }
+#player-marker { position: fixed; z-index: 1; width: 2rem; min-height: 0; height: 3rem; border: 0; border-radius: 0; padding: 0; background: transparent; filter: drop-shadow(0 2px 2px rgb(0 0 0 / .55)); touch-action: none; transform: translate(-50%, -100%); }
+#player-marker:hover, #player-marker:focus-visible { background: transparent; filter: drop-shadow(0 0 5px rgb(243 239 226 / .8)) drop-shadow(0 2px 2px rgb(0 0 0 / .55)); }
+#player-marker img { display: block; width: 100%; height: 100%; pointer-events: none; }
 
 .controls { position: fixed; z-index: 5; right: max(1rem, env(safe-area-inset-right)); bottom: max(1rem, env(safe-area-inset-bottom)); left: max(1rem, env(safe-area-inset-left)); display: flex; justify-content: center; pointer-events: none; }
 .controls > *, .zoom-controls { pointer-events: auto; }
@@ -67,9 +70,18 @@ main, #home-view, #map-view, #map-viewport { width: 100%; height: var(--app-heig
 .hotspot-options button { min-height: 2rem; border: 0; border-radius: 8px; padding: .35rem .5rem; background: transparent; color: var(--muted); font-size: .7rem; }
 .hotspot-options button:hover { background: rgb(255 255 255 / .09); }
 .hotspot-options button[aria-pressed="true"] { background: rgb(255 255 255 / .16); color: var(--text); }
+.player-control { position: fixed; z-index: 5; bottom: max(1rem, env(safe-area-inset-bottom)); left: max(1rem, env(safe-area-inset-left)); display: flex; overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 10px 30px rgb(0 0 0 / .25); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.player-control button { min-height: 2.35rem; border: 0; border-right: 1px solid var(--border); border-radius: 0; padding: .45rem .7rem; background: transparent; color: var(--muted); }
+.player-control button:last-child { border-right: 0; }
+.player-control button[aria-pressed="true"] { background: rgb(134 214 155 / .18); color: var(--text); }
+.player-control button:hover { background: rgb(255 255 255 / .09); color: var(--text); }
+.orientation-control { position: fixed; z-index: 5; bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 3rem); left: max(1rem, env(safe-area-inset-left)); }
+.orientation-control button { min-height: 2.35rem; padding: .45rem .7rem; background: var(--surface); color: var(--muted); box-shadow: 0 10px 30px rgb(0 0 0 / .25); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.orientation-control button:hover { color: var(--text); }
 
 .sheet, .transition-menu { position: fixed; z-index: 10; }
 .sheet { bottom: max(5.2rem, calc(4rem + env(safe-area-inset-bottom))); left: 50%; width: min(31rem, calc(100vw - 2rem)); max-height: min(36rem, calc(100dvh - 7.5rem)); overflow: auto; border: 1px solid var(--border); border-radius: 18px; padding: 1rem; transform: translateX(-50%); background: var(--surface-strong); box-shadow: 0 24px 70px rgb(0 0 0 / .48); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+#regions-panel { display: flex; flex-direction: column; overflow: hidden; }
 .sheet-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
 .sheet-heading h2 { margin: .15rem 0 0; font-size: 1.2rem; font-weight: 680; letter-spacing: -.02em; }
 .sheet-heading span { color: var(--muted); font-size: .62rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
@@ -89,9 +101,12 @@ main, #home-view, #map-view, #map-viewport { width: 100%; height: var(--app-heig
 .world-region-button span { font-size: .92rem; font-weight: 750; }
 .world-region-button small { font-size: .75rem; opacity: .72; }
 .region-divider { margin: 0 0 .75rem; color: var(--muted); font-size: .67rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.region-search { flex: 0 0 auto; }
 .region-search-label { display: block; margin-bottom: .4rem; color: var(--muted); font-size: .7rem; font-weight: 700; }
 #region-search { width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: .7rem .75rem; background: rgb(0 0 0 / .15); color: var(--text); }
-.region-list { margin: .8rem 0 0; padding: 0; list-style: none; }
+.region-results { flex: 1 1 auto; min-height: 0; margin-top: .9rem; overflow: auto; border-top: 1px solid var(--border); }
+.region-results-count { margin: .65rem 0 .15rem; color: var(--muted); font-size: .68rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.region-list { margin: 0; padding: 0; list-style: none; }
 .region-list li + li { border-top: 1px solid var(--border); }
 .region-list button { display: flex; width: 100%; min-height: 3rem; align-items: center; border: 0; border-radius: 0; padding: .75rem .25rem; background: transparent; color: var(--text); text-align: left; text-transform: none; letter-spacing: 0; font-size: .86rem; }
 .region-list button:hover { background: transparent; color: var(--accent); }
@@ -123,8 +138,9 @@ dialog p { color: var(--muted); font-size: .88rem; line-height: 1.5; }
   .difficulty-selector { padding-inline: .45rem; }
   .controls { justify-content: flex-start; }
   .hotspot-control { bottom: max(4.25rem, calc(3.5rem + env(safe-area-inset-bottom))); left: max(.75rem, env(safe-area-inset-left)); }
+  .player-control { bottom: max(4.25rem, calc(3.5rem + env(safe-area-inset-bottom))); left: max(.75rem, env(safe-area-inset-left)); }
+  .orientation-control { bottom: calc(max(4.25rem, calc(3.5rem + env(safe-area-inset-bottom))) + 3rem); left: max(.75rem, env(safe-area-inset-left)); }
   .sheet { bottom: max(4.7rem, calc(3.5rem + env(safe-area-inset-bottom))); width: calc(100vw - 1rem); max-height: min(35rem, calc(100dvh - 5.8rem)); border-radius: 16px; }
-  .region-list { max-height: 50dvh; overflow: auto; }
   .floating-credits { right: max(.75rem, env(safe-area-inset-right)); bottom: max(.75rem, env(safe-area-inset-bottom)); }
 }
 

@@ -10,6 +10,9 @@ const MAP_CATEGORIES = {
 };
 const STORAGE_KEY = "tld-map:difficulty";
 const HOTSPOT_STORAGE_KEY = "tld-map:home-hotspot-style";
+const PLAYER_POSITION_STORAGE_KEY = "tld-map:player-positions";
+const ORIENTATION_STORAGE_KEY = "tld-map:orientation";
+const LAST_VIEW_STORAGE_KEY = "tld-map:last-view";
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 5;
 const ZOOM_STEP = 0.25;
@@ -18,11 +21,13 @@ const PAN_STEP = 80;
 const elements = {
   homeView: document.querySelector("#home-view"), mapView: document.querySelector("#map-view"),
   homeStage: document.querySelector("#home-map-stage"), homeImage: document.querySelector("#start-map-image"), homeHotspots: document.querySelector("#home-map-hotspots"), viewport: document.querySelector("#map-viewport"),
-  image: document.querySelector("#region-image"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
+  image: document.querySelector("#region-image"), playerMarker: document.querySelector("#player-marker"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
   retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-status"), status: document.querySelector("#app-status"),
   zoomControls: document.querySelector("#zoom-controls"),
   zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"), hotspotControl: document.querySelector("#hotspot-control"), hotspotToggle: document.querySelector("#hotspot-toggle"), hotspotOptions: document.querySelector("#hotspot-options"), hotspotButtons: [...document.querySelectorAll("[data-hotspot-style]")],
-  regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), worldRegion: document.querySelector("#world-region-button"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"),
+  playerControl: document.querySelector("#player-control"), playerToggle: document.querySelector("#player-toggle"), playerClear: document.querySelector("#player-clear"),
+  orientationControl: document.querySelector("#orientation-control"), rotateMap: document.querySelector("#rotate-map"),
+  regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), worldRegion: document.querySelector("#world-region-button"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"), regionResultsCount: document.querySelector("#region-results-count"),
   creditsButton: document.querySelector("#credits-button"), credits: document.querySelector("#credits-panel"), creditsClose: document.querySelector("#credits-close"),
   difficultyPanel: document.querySelector("#difficulty-panel"), difficultyClose: document.querySelector("#difficulty-close"),
   difficultyButtons: [...document.querySelectorAll("[data-difficulty]")], transitionMenu: document.querySelector("#transition-menu"),
@@ -34,7 +39,8 @@ const elements = {
 const state = {
   maps: null, mapId: null, difficulty: readDifficulty(),
   zoom: 1, panX: 0, panY: 0, requestId: 0, pointer: null, pointers: new Map(), pinch: null,
-  homeZoom: 1, homePanX: 0, homePanY: 0, homePointer: null, homePointers: new Map(), homePinch: null, homeHotspotStyle: readHotspotStyle()
+  homeZoom: 1, homePanX: 0, homePanY: 0, homePointer: null, homePointers: new Map(), homePinch: null, homeHotspotStyle: readHotspotStyle(),
+  playerPositions: readPlayerPositions(), isPlacingPlayer: false, playerPointer: null, orientation: readOrientation()
 };
 let deferredInstallPrompt = null;
 let viewportSyncFrame = 0;
@@ -60,6 +66,41 @@ function readHotspotStyle() {
     if (["green", "white", "none"].includes(style)) return style;
     return localStorage.getItem("tld-map:home-hotspots") === "on" ? "white" : "none";
   } catch { return "none"; }
+}
+
+function readPlayerPositions() {
+  try {
+    const positions = JSON.parse(localStorage.getItem(PLAYER_POSITION_STORAGE_KEY));
+    if (!positions || typeof positions !== "object" || Array.isArray(positions)) return {};
+    return Object.fromEntries(Object.entries(positions).filter(([, position]) => Number.isFinite(position?.x) && Number.isFinite(position?.y) && position.x >= 0 && position.x <= 1 && position.y >= 0 && position.y <= 1));
+  } catch { return {}; }
+}
+
+function savePlayerPositions() {
+  try { localStorage.setItem(PLAYER_POSITION_STORAGE_KEY, JSON.stringify(state.playerPositions)); } catch { /* Storage is optional. */ }
+}
+
+function readOrientation() {
+  try {
+    const orientation = Number(localStorage.getItem(ORIENTATION_STORAGE_KEY));
+    return [0, 90, 180, 270].includes(orientation) ? orientation : 0;
+  } catch { return 0; }
+}
+
+function saveOrientation() {
+  try { localStorage.setItem(ORIENTATION_STORAGE_KEY, String(state.orientation)); } catch { /* Storage is optional. */ }
+}
+
+function readLastView() {
+  try {
+    const view = JSON.parse(localStorage.getItem(LAST_VIEW_STORAGE_KEY));
+    return typeof view?.mapId === "string" && DIFFICULTIES.has(view.difficulty) ? view : null;
+  } catch { return null; }
+}
+
+function saveLastView() {
+  if (!state.mapId) return;
+  try { localStorage.setItem(LAST_VIEW_STORAGE_KEY, JSON.stringify({ mapId: state.mapId, difficulty: state.difficulty })); } catch { /* Storage is optional. */ }
 }
 
 function closeHotspotOptions() {
@@ -192,8 +233,9 @@ function renderRegionList(query = "") {
   const regionIds = [...new Set([...document.querySelectorAll("area[data-map]")].map((area) => area.dataset.map))]
     .filter((id) => state.maps[id])
     .sort((first, second) => labelFor(first).localeCompare(labelFor(second)));
-  elements.regionList.replaceChildren(...regionIds
-    .filter((id) => labelFor(id).toLowerCase().includes(normalizedQuery))
+  const matches = regionIds.filter((id) => labelFor(id).toLowerCase().includes(normalizedQuery));
+  elements.regionResultsCount.textContent = normalizedQuery ? `${matches.length} ${matches.length === 1 ? "result" : "results"}` : `${matches.length} regions`;
+  elements.regionList.replaceChildren(...matches
     .map((id) => {
       const item = document.createElement("li");
       const button = document.createElement("button");
@@ -269,8 +311,9 @@ function panBy(x, y) {
 }
 
 function clampPan() {
-  const width = elements.image.clientWidth * state.zoom;
-  const height = elements.image.clientHeight * state.zoom;
+  const isQuarterTurn = state.orientation % 180 !== 0;
+  const width = (isQuarterTurn ? elements.image.clientHeight : elements.image.clientWidth) * state.zoom;
+  const height = (isQuarterTurn ? elements.image.clientWidth : elements.image.clientHeight) * state.zoom;
   const maxX = Math.max(0, (width - elements.viewport.clientWidth) / 2);
   const maxY = Math.max(0, (height - elements.viewport.clientHeight) / 2);
   state.panX = Math.min(maxX, Math.max(-maxX, state.panX));
@@ -279,14 +322,92 @@ function clampPan() {
 
 function applyTransform() {
   clampPan();
-  elements.image.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+  elements.image.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom}) rotate(${state.orientation}deg)`;
+  renderPlayerMarker();
+}
+
+function mapPointAt(clientX, clientY) {
+  const imageRect = elements.image.getBoundingClientRect();
+  if (!imageRect.width || !elements.image.clientWidth || !elements.image.clientHeight) return null;
+  const angle = state.orientation * Math.PI / 180;
+  const x = clientX - (imageRect.left + imageRect.width / 2);
+  const y = clientY - (imageRect.top + imageRect.height / 2);
+  const unrotatedX = (x * Math.cos(angle) + y * Math.sin(angle)) / state.zoom;
+  const unrotatedY = (-x * Math.sin(angle) + y * Math.cos(angle)) / state.zoom;
+  return {
+    x: unrotatedX / elements.image.clientWidth + .5,
+    y: unrotatedY / elements.image.clientHeight + .5
+  };
+}
+
+function rotateMap() {
+  state.orientation = (state.orientation + 90) % 360;
+  saveOrientation();
+  fitMapImage();
+  applyTransform();
+  updatePlayerControls();
+  announce(`Map rotated to ${state.orientation} degrees.`);
+}
+
+function updatePlayerControls() {
+  const hasPosition = Boolean(state.mapId && state.playerPositions[state.mapId]);
+  elements.playerControl.hidden = !state.mapId;
+  elements.playerToggle.textContent = state.isPlacingPlayer ? "Cancel placement" : hasPosition ? "Move character" : "Place character";
+  elements.playerToggle.setAttribute("aria-pressed", String(state.isPlacingPlayer));
+  elements.playerClear.hidden = !hasPosition;
+  elements.orientationControl.hidden = !state.mapId;
+  elements.rotateMap.setAttribute("aria-label", `Rotate map clockwise. Current orientation: ${state.orientation} degrees.`);
+}
+
+function renderPlayerMarker() {
+  const position = state.playerPositions[state.mapId];
+  const imageRect = elements.image.getBoundingClientRect();
+  if (!position || !imageRect.width || !imageRect.height || elements.image.hidden) {
+    elements.playerMarker.hidden = true;
+    return;
+  }
+  const angle = state.orientation * Math.PI / 180;
+  const x = (position.x - .5) * elements.image.clientWidth * state.zoom;
+  const y = (position.y - .5) * elements.image.clientHeight * state.zoom;
+  elements.playerMarker.style.left = `${imageRect.left + imageRect.width / 2 + x * Math.cos(angle) - y * Math.sin(angle)}px`;
+  elements.playerMarker.style.top = `${imageRect.top + imageRect.height / 2 + x * Math.sin(angle) + y * Math.cos(angle)}px`;
+  elements.playerMarker.hidden = false;
+}
+
+function placePlayerPosition(clientX, clientY) {
+  const point = mapPointAt(clientX, clientY);
+  if (!state.mapId || !point) return false;
+  state.playerPositions[state.mapId] = {
+    x: Math.min(1, Math.max(0, point.x)),
+    y: Math.min(1, Math.max(0, point.y))
+  };
+  savePlayerPositions();
+  renderPlayerMarker();
+  updatePlayerControls();
+  return true;
+}
+
+function togglePlayerPlacement() {
+  state.isPlacingPlayer = !state.isPlacingPlayer;
+  updatePlayerControls();
+  announce(state.isPlacingPlayer ? "Choose a point on the map for your character." : "Character placement cancelled.");
+}
+
+function clearPlayerPosition() {
+  if (!state.mapId) return;
+  delete state.playerPositions[state.mapId];
+  savePlayerPositions();
+  renderPlayerMarker();
+  updatePlayerControls();
+  announce("Character position cleared.");
 }
 
 function fitMapImage() {
   if (!elements.image.naturalWidth || !elements.viewport.clientWidth || !elements.viewport.clientHeight) return;
+  const isQuarterTurn = state.orientation % 180 !== 0;
   const scale = Math.min(
-    elements.viewport.clientWidth / elements.image.naturalWidth,
-    elements.viewport.clientHeight / elements.image.naturalHeight
+    elements.viewport.clientWidth / (isQuarterTurn ? elements.image.naturalHeight : elements.image.naturalWidth),
+    elements.viewport.clientHeight / (isQuarterTurn ? elements.image.naturalWidth : elements.image.naturalHeight)
   );
   elements.image.style.width = `${Math.floor(elements.image.naturalWidth * scale)}px`;
   elements.image.style.height = `${Math.floor(elements.image.naturalHeight * scale)}px`;
@@ -437,10 +558,10 @@ function showTransitionMenu(targets, clientX, clientY) {
 }
 
 function transitionAt(clientX, clientY) {
-  const imageRect = elements.image.getBoundingClientRect();
-  if (!elements.image.naturalWidth || !imageRect.width) return null;
-  const x = (clientX - imageRect.left) / (imageRect.width / elements.image.naturalWidth);
-  const y = (clientY - imageRect.top) / (imageRect.height / elements.image.naturalHeight);
+  const point = mapPointAt(clientX, clientY);
+  if (!elements.image.naturalWidth || !point || point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1) return null;
+  const x = point.x * elements.image.naturalWidth;
+  const y = point.y * elements.image.naturalHeight;
   return mapTransitions[state.mapId]?.find((transition) => x >= transition.x && x <= transition.x + TRANSITION_SIZE && y >= transition.y && y <= transition.y + TRANSITION_SIZE);
 }
 
@@ -469,6 +590,9 @@ function showHome({ route = "push" } = {}) {
   elements.homeView.hidden = false;
   elements.zoomControls.hidden = false;
   elements.hotspotControl.hidden = false;
+  state.isPlacingPlayer = false;
+  updatePlayerControls();
+  renderPlayerMarker();
   fitHomeImage();
   resetHomeView();
   elements.title.textContent = "Choose a region";
@@ -482,6 +606,7 @@ function loadImage(url, mapId) {
   elements.error.hidden = true;
   elements.loading.hidden = false;
   elements.image.hidden = true;
+  elements.playerMarker.hidden = true;
   elements.viewport.classList.remove("is-ready");
   elements.image.alt = `${labelFor(mapId)} map for ${difficultyLabel()} difficulty`;
   elements.image.onload = async () => {
@@ -493,6 +618,7 @@ function loadImage(url, mapId) {
     elements.viewport.classList.add("is-ready");
     fitMapImage();
     resetView();
+    renderPlayerMarker();
     preloadAdjacentMaps();
     elements.viewport.focus({ preventScroll: true });
     announce(`${labelFor(mapId)} loaded.`);
@@ -513,11 +639,14 @@ function navigate(mapId, { route = "push" } = {}) {
     return;
   }
   state.mapId = mapId;
+  saveLastView();
   hideTransitionMenu();
   elements.homeView.hidden = true;
   elements.mapView.hidden = false;
   elements.zoomControls.hidden = false;
   elements.hotspotControl.hidden = true;
+  state.isPlacingPlayer = false;
+  updatePlayerControls();
   closeHotspotOptions();
   elements.title.textContent = labelFor(mapId);
   elements.locationButton.setAttribute("aria-label", `Choose a region, currently ${labelFor(mapId)}`);
@@ -560,6 +689,9 @@ function bindEvents() {
   elements.zoomReset.addEventListener("click", () => state.mapId ? resetView() : resetHomeView());
   elements.hotspotToggle.addEventListener("click", toggleHotspotOptions);
   elements.hotspotButtons.forEach((button) => button.addEventListener("click", () => setHomeHotspotStyle(button.dataset.hotspotStyle, { announceChange: true })));
+  elements.playerToggle.addEventListener("click", togglePlayerPlacement);
+  elements.playerClear.addEventListener("click", clearPlayerPosition);
+  elements.rotateMap.addEventListener("click", rotateMap);
   elements.regionsClose.addEventListener("click", closeRegions);
   elements.regionSearch.addEventListener("input", () => renderRegionList(elements.regionSearch.value));
   elements.install.addEventListener("click", openInstallDialog);
@@ -664,6 +796,15 @@ function bindEvents() {
   elements.viewport.addEventListener("wheel", (event) => { event.preventDefault(); setZoom(state.zoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), event.clientX, event.clientY); }, { passive: false });
   elements.viewport.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 && event.pointerType === "mouse") return;
+    if (state.isPlacingPlayer) {
+      event.preventDefault();
+      if (placePlayerPosition(event.clientX, event.clientY)) {
+        state.isPlacingPlayer = false;
+        updatePlayerControls();
+        announce("Character position saved.");
+      }
+      return;
+    }
     event.preventDefault();
     hideTransitionMenu();
     elements.viewport.setPointerCapture(event.pointerId);
@@ -713,6 +854,24 @@ function bindEvents() {
     if (!pointer.moved) activateTransition(event.clientX, event.clientY);
   });
   elements.viewport.addEventListener("pointercancel", (event) => { state.pointers.delete(event.pointerId); state.pointer = null; state.pinch = null; elements.viewport.classList.remove("is-dragging"); });
+  elements.playerMarker.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 && event.pointerType === "mouse") return;
+    event.preventDefault();
+    event.stopPropagation();
+    state.playerPointer = { id: event.pointerId, moved: false };
+    elements.playerMarker.setPointerCapture(event.pointerId);
+  });
+  elements.playerMarker.addEventListener("pointermove", (event) => {
+    if (event.pointerId !== state.playerPointer?.id) return;
+    state.playerPointer.moved = true;
+    placePlayerPosition(event.clientX, event.clientY);
+  });
+  elements.playerMarker.addEventListener("pointerup", (event) => {
+    if (event.pointerId !== state.playerPointer?.id) return;
+    if (state.playerPointer.moved) announce("Character position saved.");
+    state.playerPointer = null;
+  });
+  elements.playerMarker.addEventListener("pointercancel", () => { state.playerPointer = null; });
   elements.viewport.addEventListener("dragstart", (event) => event.preventDefault());
   elements.image.addEventListener("dragstart", (event) => event.preventDefault());
   elements.viewport.addEventListener("selectstart", (event) => event.preventDefault());
@@ -744,6 +903,11 @@ function bindEvents() {
     else if (!elements.difficultyPanel.hidden) closeDifficulty();
     else if (!elements.credits.hidden) closeCredits();
     else if (!elements.hotspotOptions.hidden) closeHotspotOptions();
+    else if (state.isPlacingPlayer) {
+      state.isPlacingPlayer = false;
+      updatePlayerControls();
+      announce("Character placement cancelled.");
+    }
     else if (state.mapId) showHome();
   });
   window.addEventListener("resize", scheduleViewportSync);
@@ -768,7 +932,7 @@ function bindEvents() {
 }
 
 function applyRoute() {
-  const route = routeFromHash();
+  const route = location.hash ? routeFromHash() : readLastView() ?? routeFromHash();
   if (route.difficulty) setDifficulty(route.difficulty, { route: false });
   if (route.mapId) navigate(route.mapId, { route: false });
   else showHome({ route: false });

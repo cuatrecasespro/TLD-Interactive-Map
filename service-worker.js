@@ -1,4 +1,4 @@
-const CACHE_NAME = "tld-map-v3";
+const CACHE_NAME = "tld-map-v5";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -9,7 +9,8 @@ const APP_SHELL = [
   "./assets/js/maps.json",
   "./assets/img/homemap.png",
   "./assets/img/home.png",
-  "./assets/img/icon.svg"
+  "./assets/img/icon.svg",
+  "./assets/img/survivor-marker.svg"
 ];
 
 self.addEventListener("install", (event) => {

@@ -70,13 +70,16 @@
       <section id="map-view" hidden aria-label="Region map">
         <div id="map-viewport" tabindex="0" aria-describedby="map-help">
           <img id="region-image" alt="" draggable="false" decoding="async" />
+          <button id="player-marker" type="button" hidden aria-label="Your character position. Drag to move." title="Drag to move your character">
+            <img src="assets/img/survivor-marker.svg" alt="" />
+          </button>
           <div id="loading" role="status" hidden>Loading map...</div>
           <div id="map-error" role="alert" hidden>
             <p>Unable to load this map.</p>
             <button id="retry-button" type="button">Try again</button>
           </div>
         </div>
-        <p id="map-help" class="visually-hidden">Drag to pan. Use the mouse wheel or pinch to zoom. Press plus or minus to zoom, zero to reset, and Escape to return to the world map.</p>
+        <p id="map-help" class="visually-hidden">Drag to pan. Use the mouse wheel or pinch to zoom. Press plus or minus to zoom, zero to reset, and Escape to return to the world map. Use Rotate map to change orientation.</p>
       </section>
     </main>
 
@@ -96,6 +99,13 @@
         <button type="button" data-hotspot-style="none" aria-pressed="true">None</button>
       </div>
     </div>
+    <div id="player-control" class="player-control" hidden>
+      <button id="player-toggle" type="button" aria-pressed="false">Place character</button>
+      <button id="player-clear" type="button" hidden>Clear</button>
+    </div>
+    <div id="orientation-control" class="orientation-control" hidden>
+      <button id="rotate-map" type="button">Rotate 90°</button>
+    </div>
 
     <aside id="regions-panel" class="sheet" hidden aria-label="Choose a region">
       <div class="sheet-heading">
@@ -107,9 +117,14 @@
         <small>Great Bear Island overview</small>
       </button>
       <div class="region-divider">Regions</div>
-      <label class="region-search-label" for="region-search">Find a region</label>
-      <input id="region-search" type="search" placeholder="Search regions" autocomplete="off" />
-      <ul id="region-list" class="region-list"></ul>
+      <div class="region-search">
+        <label class="region-search-label" for="region-search">Find a region</label>
+        <input id="region-search" type="search" placeholder="Search regions" autocomplete="off" />
+      </div>
+      <div id="region-results" class="region-results">
+        <p id="region-results-count" class="region-results-count" aria-live="polite"></p>
+        <ul id="region-list" class="region-list"></ul>
+      </div>
     </aside>
 
     <aside id="difficulty-panel" class="sheet" hidden aria-label="Map difficulty">
