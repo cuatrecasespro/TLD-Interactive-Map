@@ -25,7 +25,7 @@ const elements = {
   retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-status"), status: document.querySelector("#app-status"),
   zoomControls: document.querySelector("#zoom-controls"),
   zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"), hotspotControl: document.querySelector("#hotspot-control"), hotspotToggle: document.querySelector("#hotspot-toggle"), hotspotOptions: document.querySelector("#hotspot-options"), hotspotButtons: [...document.querySelectorAll("[data-hotspot-style]")],
-  playerControl: document.querySelector("#player-control"), playerToggle: document.querySelector("#player-toggle"), playerClear: document.querySelector("#player-clear"),
+  playerControl: document.querySelector("#player-control"), playerToggle: document.querySelector("#player-toggle"), playerLocate: document.querySelector("#player-locate"), playerClear: document.querySelector("#player-clear"),
   orientationControl: document.querySelector("#orientation-control"), orientationInput: document.querySelector("#orientation-input"), orientationValue: document.querySelector("#orientation-value"), orientationReset: document.querySelector("#orientation-reset"),
   regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), worldRegion: document.querySelector("#world-region-button"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"), regionResultsCount: document.querySelector("#region-results-count"),
   creditsButton: document.querySelector("#credits-button"), credits: document.querySelector("#credits-panel"), creditsClose: document.querySelector("#credits-close"),
@@ -356,6 +356,7 @@ function updatePlayerControls() {
   elements.playerControl.hidden = !state.mapId;
   elements.playerToggle.textContent = state.isPlacingPlayer ? "Cancel placement" : hasPosition ? "Move character" : "Place character";
   elements.playerToggle.setAttribute("aria-pressed", String(state.isPlacingPlayer));
+  elements.playerLocate.hidden = !hasPosition;
   elements.playerClear.hidden = !hasPosition;
   elements.orientationControl.hidden = !state.mapId;
   elements.orientationInput.value = String(state.orientation);
@@ -411,6 +412,17 @@ function clearPlayerPosition() {
   renderPlayerMarker();
   updatePlayerControls();
   announce("Character position cleared.");
+}
+
+function focusPlayerPosition() {
+  if (!state.mapId || !state.playerPositions[state.mapId] || elements.playerMarker.hidden) return;
+  const viewportRect = elements.viewport.getBoundingClientRect();
+  const markerRect = elements.playerMarker.getBoundingClientRect();
+  state.panX += viewportRect.left + viewportRect.width / 2 - (markerRect.left + markerRect.width / 2);
+  state.panY += viewportRect.top + viewportRect.height / 2 - (markerRect.top + markerRect.height);
+  applyTransform();
+  elements.playerMarker.focus({ preventScroll: true });
+  announce("Centered on character position.");
 }
 
 function fitMapImage() {
@@ -705,6 +717,7 @@ function bindEvents() {
   elements.hotspotToggle.addEventListener("click", toggleHotspotOptions);
   elements.hotspotButtons.forEach((button) => button.addEventListener("click", () => setHomeHotspotStyle(button.dataset.hotspotStyle, { announceChange: true })));
   elements.playerToggle.addEventListener("click", togglePlayerPlacement);
+  elements.playerLocate.addEventListener("click", focusPlayerPosition);
   elements.playerClear.addEventListener("click", clearPlayerPosition);
   elements.orientationInput.addEventListener("input", () => setOrientation(Number(elements.orientationInput.value)));
   elements.orientationInput.addEventListener("change", () => announce(`Map rotated to ${state.orientation} degrees.`));
