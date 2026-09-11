@@ -22,6 +22,9 @@
         <button id="world-brand" class="header-icon" type="button" aria-label="Return to world map" title="World map">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v9.5a1 1 0 0 1-1 1h-4.5v-6h-6v6H4.5a1 1 0 0 1-1-1V10Z" /></svg>
         </button>
+        <button id="mobile-controls-button" class="header-icon mobile-controls-button" type="button" hidden aria-label="Open map controls" aria-expanded="false" aria-controls="mobile-controls-panel" title="Map controls">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" /><circle cx="8" cy="7" r="1.5" /><circle cx="16" cy="12" r="1.5" /><circle cx="11" cy="17" r="1.5" /></svg>
+        </button>
       </div>
       <button id="location-button" class="header-selector map-context" type="button" aria-label="Choose a region" aria-expanded="false" aria-controls="regions-panel">
         <span class="selector-label">Region</span>
@@ -91,6 +94,7 @@
       </div>
       <button id="install-button" type="button" hidden>Install</button>
     </nav>
+    <aside id="mobile-controls-panel" class="mobile-controls-panel" hidden aria-label="Map controls"></aside>
     <div id="hotspot-control" class="hotspot-control">
       <button id="hotspot-toggle" type="button" aria-expanded="false" aria-controls="hotspot-options">Map hints</button>
       <div id="hotspot-options" class="hotspot-options" role="group" aria-label="Clickable region hints" hidden>

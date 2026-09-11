@@ -23,6 +23,7 @@ const elements = {
   homeStage: document.querySelector("#home-map-stage"), homeImage: document.querySelector("#start-map-image"), homeHotspots: document.querySelector("#home-map-hotspots"), viewport: document.querySelector("#map-viewport"),
   image: document.querySelector("#region-image"), playerMarker: document.querySelector("#player-marker"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
   retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-status"), status: document.querySelector("#app-status"),
+  mobileControlsButton: document.querySelector("#mobile-controls-button"), mobileControlsPanel: document.querySelector("#mobile-controls-panel"),
   zoomControls: document.querySelector("#zoom-controls"),
   zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"), hotspotControl: document.querySelector("#hotspot-control"), hotspotToggle: document.querySelector("#hotspot-toggle"), hotspotOptions: document.querySelector("#hotspot-options"), hotspotButtons: [...document.querySelectorAll("[data-hotspot-style]")],
   playerControl: document.querySelector("#player-control"), playerToggle: document.querySelector("#player-toggle"), playerLocate: document.querySelector("#player-locate"), playerClear: document.querySelector("#player-clear"),
@@ -46,6 +47,7 @@ let deferredInstallPrompt = null;
 let viewportSyncFrame = 0;
 let updateRegistration = null;
 let reloadForUpdate = false;
+const compactControlsQuery = window.matchMedia("(max-width: 600px)");
 
 function readDifficulty() {
   try {
@@ -263,8 +265,38 @@ function closeDifficulty() {
 }
 
 function closeRegions() {
+  elements.regions.classList.remove("is-searching");
   elements.regions.hidden = true;
   elements.locationButton.setAttribute("aria-expanded", "false");
+}
+
+function closeMobileControls() {
+  elements.mobileControlsPanel.hidden = true;
+  elements.mobileControlsButton.setAttribute("aria-expanded", "false");
+}
+
+function syncMobileControls() {
+  if (compactControlsQuery.matches) {
+    elements.mobileControlsPanel.append(elements.zoomControls, elements.playerControl, elements.orientationControl);
+    elements.mobileControlsButton.hidden = false;
+    if (!state.mapId) closeMobileControls();
+    return;
+  }
+  elements.controls.prepend(elements.zoomControls);
+  elements.regions.before(elements.playerControl, elements.orientationControl);
+  elements.mobileControlsButton.hidden = true;
+  closeMobileControls();
+}
+
+function toggleMobileControls() {
+  const open = elements.mobileControlsPanel.hidden;
+  elements.mobileControlsPanel.hidden = !open;
+  elements.mobileControlsButton.setAttribute("aria-expanded", String(open));
+}
+
+function setRegionSearchActive(active) {
+  elements.regions.classList.toggle("is-searching", active);
+  if (active) scheduleViewportSync();
 }
 
 function openCredits() {
@@ -618,6 +650,7 @@ function showHome({ route = "push" } = {}) {
   elements.hotspotControl.hidden = false;
   state.isPlacingPlayer = false;
   updatePlayerControls();
+  syncMobileControls();
   renderPlayerMarker();
   fitHomeImage();
   resetHomeView();
@@ -667,6 +700,7 @@ function navigate(mapId, { route = "push" } = {}) {
   state.mapId = mapId;
   state.playerDragPosition = null;
   saveLastView();
+  closeMobileControls();
   hideTransitionMenu();
   elements.homeView.hidden = true;
   elements.mapView.hidden = false;
@@ -674,6 +708,7 @@ function navigate(mapId, { route = "push" } = {}) {
   elements.hotspotControl.hidden = true;
   state.isPlacingPlayer = false;
   updatePlayerControls();
+  syncMobileControls();
   closeHotspotOptions();
   elements.title.textContent = labelFor(mapId);
   elements.locationButton.setAttribute("aria-label", `Choose a region, currently ${labelFor(mapId)}`);
@@ -709,6 +744,7 @@ function bindEvents() {
   elements.worldBrand.addEventListener("click", () => showHome());
   elements.worldRegion.addEventListener("click", () => showHome());
   elements.locationButton.addEventListener("click", toggleRegions);
+  elements.mobileControlsButton.addEventListener("click", toggleMobileControls);
   elements.difficultyButton.addEventListener("click", openDifficulty);
   elements.retry.addEventListener("click", () => state.mapId && navigate(state.mapId, { route: false }));
   elements.zoomIn.addEventListener("click", () => state.mapId ? setZoom(state.zoom + ZOOM_STEP) : setHomeZoom(state.homeZoom + ZOOM_STEP));
@@ -722,7 +758,12 @@ function bindEvents() {
   elements.orientationInput.addEventListener("input", () => setOrientation(Number(elements.orientationInput.value)));
   elements.orientationInput.addEventListener("change", () => announce(`Map rotated to ${state.orientation} degrees.`));
   elements.orientationReset.addEventListener("click", () => setOrientation(0, { announceChange: true }));
+  elements.mobileControlsPanel.addEventListener("click", (event) => {
+    if (!elements.orientationControl.contains(event.target)) closeMobileControls();
+  });
   elements.regionsClose.addEventListener("click", closeRegions);
+  elements.regionSearch.addEventListener("focus", () => setRegionSearchActive(true));
+  elements.regionSearch.addEventListener("blur", () => setRegionSearchActive(false));
   elements.regionSearch.addEventListener("input", () => renderRegionList(elements.regionSearch.value));
   elements.install.addEventListener("click", openInstallDialog);
   elements.updateApp.addEventListener("click", () => {
@@ -759,6 +800,7 @@ function bindEvents() {
     }
     if (!elements.hotspotOptions.hidden && !elements.hotspotControl.contains(event.target)) closeHotspotOptions();
     if (!elements.transitionMenu.hidden && !elements.transitionMenu.contains(event.target)) hideTransitionMenu();
+    if (!elements.mobileControlsPanel.hidden && !elements.mobileControlsPanel.contains(event.target) && event.target !== elements.mobileControlsButton) closeMobileControls();
   });
   elements.homeView.addEventListener("wheel", (event) => {
     event.preventDefault();
@@ -954,6 +996,7 @@ function bindEvents() {
     else if (state.mapId) showHome();
   });
   window.addEventListener("resize", scheduleViewportSync);
+  compactControlsQuery.addEventListener("change", syncMobileControls);
   window.addEventListener("orientationchange", scheduleViewportSync);
   window.visualViewport?.addEventListener("resize", scheduleViewportSync);
   window.addEventListener("beforeinstallprompt", (event) => {
@@ -987,6 +1030,7 @@ async function initialize() {
   updateZoomControls();
   setHomeHotspotStyle(state.homeHotspotStyle);
   bindEvents();
+  syncMobileControls();
   updateInstallButton();
   try {
     const response = await fetch("assets/js/maps.json");
