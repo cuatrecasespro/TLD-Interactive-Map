@@ -24,6 +24,7 @@ const elements = {
   image: document.querySelector("#region-image"), playerMarker: document.querySelector("#player-marker"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
   retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-status"), status: document.querySelector("#app-status"),
   mobileControlsButton: document.querySelector("#mobile-controls-button"), mobileControlsPanel: document.querySelector("#mobile-controls-panel"),
+  controls: document.querySelector(".controls"),
   zoomControls: document.querySelector("#zoom-controls"),
   zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"), hotspotControl: document.querySelector("#hotspot-control"), hotspotToggle: document.querySelector("#hotspot-toggle"), hotspotOptions: document.querySelector("#hotspot-options"), hotspotButtons: [...document.querySelectorAll("[data-hotspot-style]")],
   playerControl: document.querySelector("#player-control"), playerToggle: document.querySelector("#player-toggle"), playerLocate: document.querySelector("#player-locate"), playerClear: document.querySelector("#player-clear"),
