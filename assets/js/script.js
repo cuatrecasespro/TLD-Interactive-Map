@@ -46,7 +46,6 @@ const state = {
 let deferredInstallPrompt = null;
 let viewportSyncFrame = 0;
 let updateRegistration = null;
-let reloadForUpdate = false;
 const compactControlsQuery = window.matchMedia("(max-width: 600px)");
 
 function readDifficulty() {
@@ -768,7 +767,6 @@ function bindEvents() {
   elements.install.addEventListener("click", openInstallDialog);
   elements.updateApp.addEventListener("click", () => {
     if (!updateRegistration?.waiting) return;
-    reloadForUpdate = true;
     elements.updateApp.disabled = true;
     updateRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
   });
@@ -1048,9 +1046,7 @@ async function initialize() {
 initialize();
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (reloadForUpdate) window.location.reload();
-  });
+  navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload());
   window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js")
     .then((registration) => {
       watchForAppUpdate(registration);
