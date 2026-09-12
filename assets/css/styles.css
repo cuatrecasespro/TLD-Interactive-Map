@@ -42,8 +42,10 @@ main, #home-view, #map-view, #map-viewport { width: 100%; height: var(--app-heig
 #home-view.is-dragging { cursor: grabbing; }
 #home-map-stage { position: relative; transform-origin: center; }
 #start-map-image { display: block; width: auto; height: auto; max-width: none; max-height: none; transform-origin: center; user-select: none; pointer-events: none; -webkit-user-drag: none; }
-#home-map-hotspots { position: absolute; inset: 0; pointer-events: none; }
+#home-map-hotspots, #home-player-markers { position: absolute; inset: 0; pointer-events: none; }
 .home-map-hotspot { position: absolute; border-radius: 5px; animation: home-map-aura 2s ease-in-out infinite; }
+#home-player-markers { z-index: 1; }
+.home-player-marker { position: absolute; width: 1.4rem; height: 2.1rem; filter: drop-shadow(0 2px 2px rgb(0 0 0 / .65)); transform: translate(-50%, -100%); }
 #home-map-hotspots[data-style="green"] .home-map-hotspot { border: 1px solid rgb(134 214 155 / .82); background: rgb(134 214 155 / .08); box-shadow: inset 0 0 0 1px rgb(9 35 20 / .28); animation: none; }
 @keyframes home-map-aura {
   0%, 100% { box-shadow: 0 0 10px rgb(255 255 255 / .46); }

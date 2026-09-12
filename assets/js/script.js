@@ -20,7 +20,7 @@ const PAN_STEP = 80;
 
 const elements = {
   homeView: document.querySelector("#home-view"), mapView: document.querySelector("#map-view"),
-  homeStage: document.querySelector("#home-map-stage"), homeImage: document.querySelector("#start-map-image"), homeHotspots: document.querySelector("#home-map-hotspots"), viewport: document.querySelector("#map-viewport"),
+  homeStage: document.querySelector("#home-map-stage"), homeImage: document.querySelector("#start-map-image"), homeHotspots: document.querySelector("#home-map-hotspots"), homePlayerMarkers: document.querySelector("#home-player-markers"), viewport: document.querySelector("#map-viewport"),
   image: document.querySelector("#region-image"), playerMarker: document.querySelector("#player-marker"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
   retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-status"), status: document.querySelector("#app-status"),
   mobileControlsButton: document.querySelector("#mobile-controls-button"), mobileControlsPanel: document.querySelector("#mobile-controls-panel"),
@@ -423,6 +423,7 @@ function placePlayerPosition(clientX, clientY, { persist = true } = {}) {
     state.playerPositions[state.mapId] = position;
     savePlayerPositions();
     updatePlayerControls();
+    syncHomePlayerMarkers();
   } else {
     state.playerDragPosition = position;
   }
@@ -441,6 +442,7 @@ function clearPlayerPosition() {
   state.playerDragPosition = null;
   delete state.playerPositions[state.mapId];
   savePlayerPositions();
+  syncHomePlayerMarkers();
   renderPlayerMarker();
   updatePlayerControls();
   announce("Character position cleared.");
@@ -522,6 +524,24 @@ function syncHomeHotspots() {
     hotspot.style.height = `${(bottom - top) / image.naturalHeight * 100}%`;
     return hotspot;
   }));
+  syncHomePlayerMarkers();
+}
+
+function syncHomePlayerMarkers() {
+  const image = elements.homeImage;
+  if (!image.naturalWidth) return;
+  elements.homePlayerMarkers.replaceChildren(...[...document.querySelectorAll("area[data-map]")]
+    .filter((area) => state.playerPositions[area.dataset.map])
+    .map((area) => {
+      const [left, top, right, bottom] = (area.dataset.originalCoords ?? area.getAttribute("coords")).split(",").map(Number);
+      const marker = document.createElement("img");
+      marker.className = "home-player-marker";
+      marker.src = "assets/img/survivor-marker.svg";
+      marker.alt = "";
+      marker.style.left = `${(left + right) / 2 / image.naturalWidth * 100}%`;
+      marker.style.top = `${(top + bottom) / 2 / image.naturalHeight * 100}%`;
+      return marker;
+    }));
 }
 
 function clampHomePan() {
@@ -950,6 +970,7 @@ function bindEvents() {
       state.playerDragPosition = null;
       savePlayerPositions();
       updatePlayerControls();
+      syncHomePlayerMarkers();
       renderPlayerMarker();
       announce("Character position saved.");
     }
