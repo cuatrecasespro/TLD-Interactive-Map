@@ -86,6 +86,7 @@ main, #home-view, #map-view, #map-viewport { width: 100%; height: var(--app-heig
 .sheet, .transition-menu { position: fixed; z-index: 10; }
 .sheet { bottom: max(5.2rem, calc(4rem + env(safe-area-inset-bottom))); left: 50%; width: min(31rem, calc(100vw - 2rem)); max-height: min(36rem, calc(100dvh - 7.5rem)); overflow: auto; border: 1px solid var(--border); border-radius: 18px; padding: 1rem; transform: translateX(-50%); background: var(--surface-strong); box-shadow: 0 24px 70px rgb(0 0 0 / .48); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
 #regions-panel { display: flex; flex-direction: column; overflow: hidden; }
+#regions-panel.is-searching { height: min(36rem, calc(100dvh - 7.5rem)); }
 .sheet-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
 .sheet-heading h2 { margin: .15rem 0 0; font-size: 1.2rem; font-weight: 680; letter-spacing: -.02em; }
 .sheet-heading span { color: var(--muted); font-size: .62rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
