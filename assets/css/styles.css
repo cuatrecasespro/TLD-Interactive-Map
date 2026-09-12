@@ -86,7 +86,6 @@ main, #home-view, #map-view, #map-viewport { width: 100%; height: var(--app-heig
 .sheet, .transition-menu { position: fixed; z-index: 10; }
 .sheet { bottom: max(5.2rem, calc(4rem + env(safe-area-inset-bottom))); left: 50%; width: min(31rem, calc(100vw - 2rem)); max-height: min(36rem, calc(100dvh - 7.5rem)); overflow: auto; border: 1px solid var(--border); border-radius: 18px; padding: 1rem; transform: translateX(-50%); background: var(--surface-strong); box-shadow: 0 24px 70px rgb(0 0 0 / .48); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
 #regions-panel { display: flex; flex-direction: column; overflow: hidden; }
-#regions-panel.is-searching { height: min(36rem, calc(100dvh - 7.5rem)); }
 .sheet-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
 .sheet-heading h2 { margin: .15rem 0 0; font-size: 1.2rem; font-weight: 680; letter-spacing: -.02em; }
 .sheet-heading span { color: var(--muted); font-size: .62rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
@@ -109,7 +108,7 @@ main, #home-view, #map-view, #map-viewport { width: 100%; height: var(--app-heig
 .region-search { flex: 0 0 auto; }
 .region-search-label { display: block; margin-bottom: .4rem; color: var(--muted); font-size: .7rem; font-weight: 700; }
 #region-search { width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: .7rem .75rem; background: rgb(0 0 0 / .15); color: var(--text); }
-.region-results { flex: 1 1 auto; min-height: 0; margin-top: .9rem; overflow: auto; border-top: 1px solid var(--border); }
+.region-results { flex: 1 1 0; min-height: 0; margin-top: .9rem; overflow: auto; border-top: 1px solid var(--border); }
 .region-results-count { margin: .65rem 0 .15rem; color: var(--muted); font-size: .68rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
 .region-list { margin: 0; padding: 0; list-style: none; }
 .region-list li + li { border-top: 1px solid var(--border); }
@@ -133,6 +132,10 @@ dialog p { color: var(--muted); font-size: .88rem; line-height: 1.5; }
 .update-notice button { width: 100%; border-color: var(--accent); background: var(--accent); color: var(--accent-ink); box-shadow: 0 14px 34px rgb(0 0 0 / .36); text-transform: none; }
 .update-notice button:hover { background: #a5e6b5; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; clip-path: inset(50%); }
+
+@media (min-width: 601px) {
+  #regions-panel { height: min(36rem, calc(100dvh - 7.5rem)); }
+}
 
 @media (max-width: 600px) {
   .app-header { min-height: 4.5rem; padding-inline: .75rem; }
