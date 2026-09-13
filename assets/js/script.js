@@ -74,12 +74,19 @@ function readPlayerPositions() {
   try {
     const positions = JSON.parse(localStorage.getItem(PLAYER_POSITION_STORAGE_KEY));
     if (!positions || typeof positions !== "object" || Array.isArray(positions)) return {};
-    return Object.fromEntries(Object.entries(positions).filter(([, position]) => Number.isFinite(position?.x) && Number.isFinite(position?.y) && position.x >= 0 && position.x <= 1 && position.y >= 0 && position.y <= 1));
+    const activePosition = Object.entries(positions).filter(([, position]) => Number.isFinite(position?.x) && Number.isFinite(position?.y) && position.x >= 0 && position.x <= 1 && position.y >= 0 && position.y <= 1).at(-1);
+    return activePosition ? { [activePosition[0]]: activePosition[1] } : {};
   } catch { return {}; }
 }
 
 function savePlayerPositions() {
   try { localStorage.setItem(PLAYER_POSITION_STORAGE_KEY, JSON.stringify(state.playerPositions)); } catch { /* Storage is optional. */ }
+}
+
+function savePlayerPosition(position) {
+  state.playerPositions = { [state.mapId]: position };
+  savePlayerPositions();
+  syncHomePlayerMarkers();
 }
 
 function readOrientation() {
@@ -420,10 +427,8 @@ function placePlayerPosition(clientX, clientY, { persist = true } = {}) {
     y: Math.min(1, Math.max(0, point.y))
   };
   if (persist) {
-    state.playerPositions[state.mapId] = position;
-    savePlayerPositions();
+    savePlayerPosition(position);
     updatePlayerControls();
-    syncHomePlayerMarkers();
   } else {
     state.playerDragPosition = position;
   }
@@ -440,7 +445,7 @@ function togglePlayerPlacement() {
 function clearPlayerPosition() {
   if (!state.mapId) return;
   state.playerDragPosition = null;
-  delete state.playerPositions[state.mapId];
+  state.playerPositions = {};
   savePlayerPositions();
   syncHomePlayerMarkers();
   renderPlayerMarker();
@@ -530,18 +535,19 @@ function syncHomeHotspots() {
 function syncHomePlayerMarkers() {
   const image = elements.homeImage;
   if (!image.naturalWidth) return;
-  elements.homePlayerMarkers.replaceChildren(...[...document.querySelectorAll("area[data-map]")]
-    .filter((area) => state.playerPositions[area.dataset.map])
-    .map((area) => {
-      const [left, top, right, bottom] = (area.dataset.originalCoords ?? area.getAttribute("coords")).split(",").map(Number);
-      const marker = document.createElement("img");
-      marker.className = "home-player-marker";
-      marker.src = "assets/img/survivor-marker.svg";
-      marker.alt = "";
-      marker.style.left = `${(left + right) / 2 / image.naturalWidth * 100}%`;
-      marker.style.top = `${(top + bottom) / 2 / image.naturalHeight * 100}%`;
-      return marker;
-    }));
+  const activeRegion = [...document.querySelectorAll("area[data-map]")].find((area) => state.playerPositions[area.dataset.map]);
+  if (!activeRegion) {
+    elements.homePlayerMarkers.replaceChildren();
+    return;
+  }
+  const [left, top, right, bottom] = (activeRegion.dataset.originalCoords ?? activeRegion.getAttribute("coords")).split(",").map(Number);
+  const marker = document.createElement("img");
+  marker.className = "home-player-marker";
+  marker.src = "assets/img/survivor-marker.svg";
+  marker.alt = "";
+  marker.style.left = `${(left + right) / 2 / image.naturalWidth * 100}%`;
+  marker.style.top = `${(top + bottom) / 2 / image.naturalHeight * 100}%`;
+  elements.homePlayerMarkers.replaceChildren(marker);
 }
 
 function clampHomePan() {
@@ -966,11 +972,9 @@ function bindEvents() {
   elements.playerMarker.addEventListener("pointerup", (event) => {
     if (event.pointerId !== state.playerPointer?.id) return;
     if (state.playerPointer.moved && state.playerDragPosition) {
-      state.playerPositions[state.mapId] = state.playerDragPosition;
+      savePlayerPosition(state.playerDragPosition);
       state.playerDragPosition = null;
-      savePlayerPositions();
       updatePlayerControls();
-      syncHomePlayerMarkers();
       renderPlayerMarker();
       announce("Character position saved.");
     }
