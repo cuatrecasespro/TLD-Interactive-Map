@@ -329,7 +329,7 @@ function toggleRegions() {
     closeDifficulty();
     elements.regions.hidden = false;
     elements.locationButton.setAttribute("aria-expanded", "true");
-    elements.regionSearch.focus();
+    if (!compactControlsQuery.matches) elements.regionSearch.focus();
   } else {
     closeRegions();
   }
@@ -766,7 +766,11 @@ function scaleHomeAreas() {
 
 function bindEvents() {
   document.querySelectorAll("area[data-map]").forEach((area) => area.addEventListener("click", (event) => { event.preventDefault(); navigate(area.dataset.map); }));
-  elements.difficultyButtons.forEach((button) => button.addEventListener("click", () => setDifficulty(button.dataset.difficulty)));
+  elements.difficultyButtons.forEach((button) => button.addEventListener("click", () => {
+    setDifficulty(button.dataset.difficulty);
+    closeDifficulty();
+    elements.difficultyButton.focus();
+  }));
   elements.worldBrand.addEventListener("click", () => showHome());
   elements.worldRegion.addEventListener("click", () => showHome());
   elements.locationButton.addEventListener("click", toggleRegions);
