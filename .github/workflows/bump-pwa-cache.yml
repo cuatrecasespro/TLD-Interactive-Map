@@ -1,0 +1,37 @@
+name: Bump PWA Cache
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "index.html"
+      - "manifest.webmanifest"
+      - "assets/**"
+
+permissions:
+  contents: write
+
+jobs:
+  bump-cache:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Bump PWA cache version
+        run: node scripts/bump-cache-version.js
+
+      - name: Commit and push cache update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add service-worker.js
+          git commit -m "chore: bump PWA cache"
+          git push
