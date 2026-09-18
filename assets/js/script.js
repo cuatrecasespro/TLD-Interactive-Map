@@ -459,8 +459,12 @@ function toggleRoutePlanning() {
 
 function clearRoute() {
   if (!state.mapId) return;
-  delete state.plannedRoutes[state.mapId];
+  state.plannedRoutes = Object.fromEntries(Object.entries(state.plannedRoutes).filter(([mapId]) => mapId !== state.mapId));
+  state.routePointer = null;
+  state.isPlanningRoute = false;
   savePlannedRoutes();
+  elements.routeLine.removeAttribute("points");
+  elements.routeOverlay.hidden = true;
   renderRoute();
   updatePlayerControls();
   announce("Planned route cleared.");
