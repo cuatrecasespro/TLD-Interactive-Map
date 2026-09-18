@@ -74,6 +74,7 @@
       <section id="map-view" hidden aria-label="Region map">
         <div id="map-viewport" tabindex="0" aria-describedby="map-help">
           <img id="region-image" alt="" draggable="false" decoding="async" />
+          <svg id="route-overlay" aria-hidden="true"><polyline id="route-line" /></svg>
           <button id="player-marker" type="button" hidden aria-label="Your character position. Drag to move." title="Drag to move your character">
             <img src="assets/img/survivor-marker.svg" alt="" />
           </button>
@@ -108,6 +109,10 @@
       <button id="player-toggle" type="button" aria-pressed="false">Place character</button>
       <button id="player-locate" type="button" hidden>Go to character</button>
       <button id="player-clear" type="button" hidden>Clear</button>
+    </div>
+    <div id="route-control" class="route-control" hidden>
+      <button id="route-toggle" type="button" aria-pressed="false">Plan route</button>
+      <button id="route-clear" type="button" hidden>Clear route</button>
     </div>
     <div id="orientation-control" class="orientation-control" hidden>
       <label for="orientation-input">Map orientation <output id="orientation-value">0°</output></label>

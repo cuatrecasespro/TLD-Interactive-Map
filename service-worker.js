@@ -1,4 +1,4 @@
-const CACHE_NAME = "tld-map-v11";
+const CACHE_NAME = "tld-map-v12";
 const APP_SHELL = [
   "./",
   "./index.html",

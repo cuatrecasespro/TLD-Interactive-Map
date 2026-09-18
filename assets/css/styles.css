@@ -55,6 +55,8 @@ main, #home-view, #map-view, #map-viewport { width: 100%; height: var(--app-heig
 #map-viewport.is-dragging { cursor: grabbing; }
 #region-image { display: block; width: auto; height: auto; max-width: none; max-height: none; transform-origin: center; user-select: none; pointer-events: none; -webkit-user-drag: none; }
 #map-viewport.is-ready #region-image { will-change: transform; }
+#route-overlay { position: fixed; z-index: 1; inset: 0; width: 100vw; height: 100vh; overflow: visible; pointer-events: none; }
+#route-line { fill: none; stroke: #f0c36a; stroke-linecap: round; stroke-linejoin: round; stroke-width: 5; filter: drop-shadow(0 1px 2px rgb(0 0 0 / .72)); vector-effect: non-scaling-stroke; }
 #player-marker { position: fixed; z-index: 1; width: 2rem; min-height: 0; height: 3rem; border: 0; border-radius: 0; padding: 0; background: transparent; filter: drop-shadow(0 2px 2px rgb(0 0 0 / .55)); touch-action: none; transform: translate(-50%, -100%); }
 #player-marker:hover, #player-marker:focus-visible { background: transparent; filter: drop-shadow(0 0 5px rgb(243 239 226 / .8)) drop-shadow(0 2px 2px rgb(0 0 0 / .55)); }
 #player-marker img { display: block; width: 100%; height: 100%; pointer-events: none; }
@@ -73,12 +75,14 @@ main, #home-view, #map-view, #map-viewport { width: 100%; height: var(--app-heig
 .hotspot-options button { min-height: 2rem; border: 0; border-radius: 8px; padding: .35rem .5rem; background: transparent; color: var(--muted); font-size: .7rem; }
 .hotspot-options button:hover { background: rgb(255 255 255 / .09); }
 .hotspot-options button[aria-pressed="true"] { background: rgb(255 255 255 / .16); color: var(--text); }
-.player-control { position: fixed; z-index: 5; bottom: max(1rem, env(safe-area-inset-bottom)); left: max(1rem, env(safe-area-inset-left)); display: flex; overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 10px 30px rgb(0 0 0 / .25); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
-.player-control button { min-height: 2.35rem; border: 0; border-right: 1px solid var(--border); border-radius: 0; padding: .45rem .7rem; background: transparent; color: var(--muted); }
-.player-control button:last-child { border-right: 0; }
+.player-control, .route-control { position: fixed; z-index: 5; bottom: max(1rem, env(safe-area-inset-bottom)); left: max(1rem, env(safe-area-inset-left)); display: flex; overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 10px 30px rgb(0 0 0 / .25); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.route-control { bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 3rem); }
+.player-control button, .route-control button { min-height: 2.35rem; border: 0; border-right: 1px solid var(--border); border-radius: 0; padding: .45rem .7rem; background: transparent; color: var(--muted); }
+.player-control button:last-child, .route-control button:last-child { border-right: 0; }
 .player-control button[aria-pressed="true"] { background: rgb(134 214 155 / .18); color: var(--text); }
-.player-control button:hover { background: rgb(255 255 255 / .09); color: var(--text); }
-.orientation-control { position: fixed; z-index: 5; bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 3rem); left: max(1rem, env(safe-area-inset-left)); display: grid; grid-template-columns: 1fr auto; gap: .35rem .65rem; width: min(15rem, calc(100vw - 2rem)); border: 1px solid var(--border); border-radius: 12px; padding: .55rem .65rem; background: var(--surface); box-shadow: 0 10px 30px rgb(0 0 0 / .25); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.route-control button[aria-pressed="true"] { background: rgb(240 195 106 / .2); color: var(--text); }
+.player-control button:hover, .route-control button:hover { background: rgb(255 255 255 / .09); color: var(--text); }
+.orientation-control { position: fixed; z-index: 5; bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 6rem); left: max(1rem, env(safe-area-inset-left)); display: grid; grid-template-columns: 1fr auto; gap: .35rem .65rem; width: min(15rem, calc(100vw - 2rem)); border: 1px solid var(--border); border-radius: 12px; padding: .55rem .65rem; background: var(--surface); box-shadow: 0 10px 30px rgb(0 0 0 / .25); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 .orientation-control label { grid-column: 1 / -1; display: flex; justify-content: space-between; color: var(--muted); font-size: .68rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
 .orientation-control output { color: var(--text); }
 .orientation-control input { width: 100%; accent-color: var(--accent); }
@@ -149,12 +153,13 @@ dialog p { color: var(--muted); font-size: .88rem; line-height: 1.5; }
   .controls { justify-content: flex-start; }
   .mobile-controls-button { display: grid; margin-left: .4rem; }
   .mobile-controls-panel { position: fixed; z-index: 9; top: max(4.5rem, calc(env(safe-area-inset-top) + 3.5rem)); right: max(.75rem, env(safe-area-inset-right)); left: max(.75rem, env(safe-area-inset-left)); display: grid; gap: .55rem; border: 1px solid var(--border); border-radius: 14px; padding: .55rem; background: var(--surface-strong); box-shadow: 0 18px 40px rgb(0 0 0 / .42); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
-  #mobile-controls-panel .zoom-controls, #mobile-controls-panel .player-control, #mobile-controls-panel .orientation-control { position: static; width: 100%; margin: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  #mobile-controls-panel .zoom-controls, #mobile-controls-panel .player-control, #mobile-controls-panel .route-control, #mobile-controls-panel .orientation-control { position: static; width: 100%; margin: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
   #mobile-controls-panel .zoom-controls { display: flex; }
-  #mobile-controls-panel .zoom-controls button, #mobile-controls-panel .player-control button { flex: 1; }
+  #mobile-controls-panel .zoom-controls button, #mobile-controls-panel .player-control button, #mobile-controls-panel .route-control button { flex: 1; }
   #mobile-controls-panel .orientation-control { width: 100%; }
   .hotspot-control { bottom: max(4.25rem, calc(3.5rem + env(safe-area-inset-bottom))); left: max(.75rem, env(safe-area-inset-left)); }
   .player-control { bottom: max(4.25rem, calc(3.5rem + env(safe-area-inset-bottom))); left: max(.75rem, env(safe-area-inset-left)); }
+  .route-control { bottom: max(4.25rem, calc(3.5rem + env(safe-area-inset-bottom))); left: max(.75rem, env(safe-area-inset-left)); }
   .orientation-control { bottom: calc(max(4.25rem, calc(3.5rem + env(safe-area-inset-bottom))) + 3rem); left: max(.75rem, env(safe-area-inset-left)); }
   .sheet { bottom: max(4.7rem, calc(3.5rem + env(safe-area-inset-bottom))); width: calc(100vw - 1rem); max-height: min(35rem, calc(100dvh - 5.8rem)); border-radius: 16px; }
   #regions-panel.is-searching { top: max(.5rem, env(safe-area-inset-top)); bottom: auto; height: calc(var(--app-height, 100dvh) - 1rem); max-height: none; }

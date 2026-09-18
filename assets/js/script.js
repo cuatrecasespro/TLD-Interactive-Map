@@ -13,6 +13,7 @@ const HOTSPOT_STORAGE_KEY = "tld-map:home-hotspot-style";
 const PLAYER_POSITION_STORAGE_KEY = "tld-map:player-positions";
 const ORIENTATION_STORAGE_KEY = "tld-map:orientation";
 const LAST_VIEW_STORAGE_KEY = "tld-map:last-view";
+const ROUTE_STORAGE_KEY = "tld-map:planned-routes";
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 5;
 const ZOOM_STEP = 0.25;
@@ -21,13 +22,14 @@ const PAN_STEP = 80;
 const elements = {
   homeView: document.querySelector("#home-view"), mapView: document.querySelector("#map-view"),
   homeStage: document.querySelector("#home-map-stage"), homeImage: document.querySelector("#start-map-image"), homeHotspots: document.querySelector("#home-map-hotspots"), homePlayerMarkers: document.querySelector("#home-player-markers"), viewport: document.querySelector("#map-viewport"),
-  image: document.querySelector("#region-image"), playerMarker: document.querySelector("#player-marker"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
+  image: document.querySelector("#region-image"), routeOverlay: document.querySelector("#route-overlay"), routeLine: document.querySelector("#route-line"), playerMarker: document.querySelector("#player-marker"), loading: document.querySelector("#loading"), error: document.querySelector("#map-error"),
   retry: document.querySelector("#retry-button"), worldBrand: document.querySelector("#world-brand"), locationButton: document.querySelector("#location-button"), title: document.querySelector("#map-title"), difficultyButton: document.querySelector("#difficulty-button"), difficultyStatus: document.querySelector("#difficulty-status"), status: document.querySelector("#app-status"),
   mobileControlsButton: document.querySelector("#mobile-controls-button"), mobileControlsPanel: document.querySelector("#mobile-controls-panel"),
   controls: document.querySelector(".controls"),
   zoomControls: document.querySelector("#zoom-controls"),
   zoomIn: document.querySelector("#zoom-in"), zoomOut: document.querySelector("#zoom-out"), zoomReset: document.querySelector("#zoom-reset"), hotspotControl: document.querySelector("#hotspot-control"), hotspotToggle: document.querySelector("#hotspot-toggle"), hotspotOptions: document.querySelector("#hotspot-options"), hotspotButtons: [...document.querySelectorAll("[data-hotspot-style]")],
   playerControl: document.querySelector("#player-control"), playerToggle: document.querySelector("#player-toggle"), playerLocate: document.querySelector("#player-locate"), playerClear: document.querySelector("#player-clear"),
+  routeControl: document.querySelector("#route-control"), routeToggle: document.querySelector("#route-toggle"), routeClear: document.querySelector("#route-clear"),
   orientationControl: document.querySelector("#orientation-control"), orientationInput: document.querySelector("#orientation-input"), orientationValue: document.querySelector("#orientation-value"), orientationReset: document.querySelector("#orientation-reset"),
   regions: document.querySelector("#regions-panel"), regionsClose: document.querySelector("#regions-close"), worldRegion: document.querySelector("#world-region-button"), regionSearch: document.querySelector("#region-search"), regionList: document.querySelector("#region-list"), regionResultsCount: document.querySelector("#region-results-count"),
   creditsButton: document.querySelector("#credits-button"), credits: document.querySelector("#credits-panel"), creditsClose: document.querySelector("#credits-close"),
@@ -42,7 +44,7 @@ const state = {
   maps: null, mapId: null, difficulty: readDifficulty(),
   zoom: 1, panX: 0, panY: 0, requestId: 0, pointer: null, pointers: new Map(), pinch: null,
   homeZoom: 1, homePanX: 0, homePanY: 0, homePointer: null, homePointers: new Map(), homePinch: null, homeHotspotStyle: readHotspotStyle(),
-  playerPositions: readPlayerPositions(), isPlacingPlayer: false, playerPointer: null, playerDragPosition: null, orientation: readOrientation()
+  playerPositions: readPlayerPositions(), isPlacingPlayer: false, playerPointer: null, playerDragPosition: null, plannedRoutes: readPlannedRoutes(), isPlanningRoute: false, routePointer: null, orientation: readOrientation()
 };
 let deferredInstallPrompt = null;
 let viewportSyncFrame = 0;
@@ -87,6 +89,18 @@ function savePlayerPosition(position) {
   state.playerPositions = { [state.mapId]: position };
   savePlayerPositions();
   syncHomePlayerMarkers();
+}
+
+function readPlannedRoutes() {
+  try {
+    const routes = JSON.parse(localStorage.getItem(ROUTE_STORAGE_KEY));
+    if (!routes || typeof routes !== "object" || Array.isArray(routes)) return {};
+    return Object.fromEntries(Object.entries(routes).filter(([, points]) => Array.isArray(points) && points.length > 1 && points.every((point) => Number.isFinite(point?.x) && Number.isFinite(point?.y) && point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= 1)));
+  } catch { return {}; }
+}
+
+function savePlannedRoutes() {
+  try { localStorage.setItem(ROUTE_STORAGE_KEY, JSON.stringify(state.plannedRoutes)); } catch { /* Storage is optional. */ }
 }
 
 function readOrientation() {
@@ -284,13 +298,13 @@ function closeMobileControls() {
 
 function syncMobileControls() {
   if (compactControlsQuery.matches) {
-    elements.mobileControlsPanel.append(elements.zoomControls, elements.playerControl, elements.orientationControl);
+    elements.mobileControlsPanel.append(elements.zoomControls, elements.playerControl, elements.routeControl, elements.orientationControl);
     elements.mobileControlsButton.hidden = false;
     if (!state.mapId) closeMobileControls();
     return;
   }
   elements.controls.prepend(elements.zoomControls);
-  elements.regions.before(elements.playerControl, elements.orientationControl);
+  elements.regions.before(elements.playerControl, elements.routeControl, elements.orientationControl);
   elements.mobileControlsButton.hidden = true;
   closeMobileControls();
 }
@@ -365,6 +379,7 @@ function applyTransform() {
   clampPan();
   elements.image.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom}) rotate(${state.orientation}deg)`;
   renderPlayerMarker();
+  renderRoute();
 }
 
 function mapPointAt(clientX, clientY) {
@@ -397,11 +412,58 @@ function updatePlayerControls() {
   elements.playerToggle.setAttribute("aria-pressed", String(state.isPlacingPlayer));
   elements.playerLocate.hidden = !hasPosition;
   elements.playerClear.hidden = !hasPosition;
+  const hasRoute = Boolean(state.mapId && state.plannedRoutes[state.mapId]?.length > 1);
+  elements.routeControl.hidden = !state.mapId;
+  elements.routeToggle.textContent = state.isPlanningRoute ? "Cancel route" : hasRoute ? "Redraw route" : "Plan route";
+  elements.routeToggle.setAttribute("aria-pressed", String(state.isPlanningRoute));
+  elements.routeClear.hidden = !hasRoute;
   elements.orientationControl.hidden = !state.mapId;
   elements.orientationInput.value = String(state.orientation);
   elements.orientationValue.value = `${state.orientation}°`;
   elements.orientationValue.textContent = `${state.orientation}°`;
   elements.orientationReset.disabled = state.orientation === 0;
+}
+
+function renderRoute() {
+  const route = state.plannedRoutes[state.mapId];
+  const imageRect = elements.image.getBoundingClientRect();
+  if (!route || !imageRect.width || !imageRect.height || elements.image.hidden) {
+    elements.routeOverlay.hidden = true;
+    return;
+  }
+  const angle = state.orientation * Math.PI / 180;
+  const centerX = imageRect.left + imageRect.width / 2;
+  const centerY = imageRect.top + imageRect.height / 2;
+  elements.routeOverlay.setAttribute("viewBox", `0 0 ${innerWidth} ${innerHeight}`);
+  elements.routeLine.setAttribute("points", route.map((point) => {
+    const x = (point.x - .5) * elements.image.clientWidth * state.zoom;
+    const y = (point.y - .5) * elements.image.clientHeight * state.zoom;
+    return `${centerX + x * Math.cos(angle) - y * Math.sin(angle)},${centerY + x * Math.sin(angle) + y * Math.cos(angle)}`;
+  }).join(" "));
+  elements.routeOverlay.hidden = false;
+}
+
+function routePointAt(clientX, clientY) {
+  const point = mapPointAt(clientX, clientY);
+  if (!point || point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1) return null;
+  return point;
+}
+
+function toggleRoutePlanning() {
+  if (!state.mapId) return;
+  state.isPlanningRoute = !state.isPlanningRoute;
+  state.isPlacingPlayer = false;
+  updatePlayerControls();
+  announce(state.isPlanningRoute ? "Draw your planned route on the map." : "Route planning cancelled.");
+}
+
+function clearRoute() {
+  if (!state.mapId) return;
+  delete state.plannedRoutes[state.mapId];
+  savePlannedRoutes();
+  renderRoute();
+  updatePlayerControls();
+  announce("Planned route cleared.");
 }
 
 function renderPlayerMarker() {
@@ -438,6 +500,7 @@ function placePlayerPosition(clientX, clientY, { persist = true } = {}) {
 
 function togglePlayerPlacement() {
   state.isPlacingPlayer = !state.isPlacingPlayer;
+  state.isPlanningRoute = false;
   updatePlayerControls();
   announce(state.isPlacingPlayer ? "Choose a point on the map for your character." : "Character placement cancelled.");
 }
@@ -675,9 +738,11 @@ function showHome({ route = "push" } = {}) {
   elements.zoomControls.hidden = false;
   elements.hotspotControl.hidden = false;
   state.isPlacingPlayer = false;
+  state.isPlanningRoute = false;
   updatePlayerControls();
   syncMobileControls();
   renderPlayerMarker();
+  renderRoute();
   fitHomeImage();
   resetHomeView();
   elements.title.textContent = "Choose a region";
@@ -692,6 +757,7 @@ function loadImage(url, mapId) {
   elements.loading.hidden = false;
   elements.image.hidden = true;
   elements.playerMarker.hidden = true;
+  elements.routeOverlay.hidden = true;
   elements.viewport.classList.remove("is-ready");
   elements.image.alt = `${labelFor(mapId)} map for ${difficultyLabel()} difficulty`;
   elements.image.onload = async () => {
@@ -704,6 +770,7 @@ function loadImage(url, mapId) {
     fitMapImage();
     resetView();
     renderPlayerMarker();
+    renderRoute();
     preloadAdjacentMaps();
     elements.viewport.focus({ preventScroll: true });
     announce(`${labelFor(mapId)} loaded.`);
@@ -733,6 +800,7 @@ function navigate(mapId, { route = "push" } = {}) {
   elements.zoomControls.hidden = false;
   elements.hotspotControl.hidden = true;
   state.isPlacingPlayer = false;
+  state.isPlanningRoute = false;
   updatePlayerControls();
   syncMobileControls();
   closeHotspotOptions();
@@ -785,6 +853,8 @@ function bindEvents() {
   elements.playerToggle.addEventListener("click", togglePlayerPlacement);
   elements.playerLocate.addEventListener("click", focusPlayerPosition);
   elements.playerClear.addEventListener("click", clearPlayerPosition);
+  elements.routeToggle.addEventListener("click", toggleRoutePlanning);
+  elements.routeClear.addEventListener("click", clearRoute);
   elements.orientationInput.addEventListener("input", () => setOrientation(Number(elements.orientationInput.value)));
   elements.orientationInput.addEventListener("change", () => announce(`Map rotated to ${state.orientation} degrees.`));
   elements.orientationReset.addEventListener("click", () => setOrientation(0, { announceChange: true }));
@@ -897,6 +967,17 @@ function bindEvents() {
   elements.viewport.addEventListener("wheel", (event) => { event.preventDefault(); setZoom(state.zoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), event.clientX, event.clientY); }, { passive: false });
   elements.viewport.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 && event.pointerType === "mouse") return;
+    if (state.isPlanningRoute) {
+      const point = routePointAt(event.clientX, event.clientY);
+      if (!point) return;
+      event.preventDefault();
+      hideTransitionMenu();
+      elements.viewport.setPointerCapture(event.pointerId);
+      state.routePointer = { id: event.pointerId, points: [point] };
+      state.plannedRoutes[state.mapId] = state.routePointer.points;
+      renderRoute();
+      return;
+    }
     if (state.isPlacingPlayer) {
       event.preventDefault();
       if (placePlayerPosition(event.clientX, event.clientY)) {
@@ -920,6 +1001,15 @@ function bindEvents() {
     elements.viewport.classList.add("is-dragging");
   });
   elements.viewport.addEventListener("pointermove", (event) => {
+    if (event.pointerId === state.routePointer?.id) {
+      const point = routePointAt(event.clientX, event.clientY);
+      const previous = state.routePointer.points.at(-1);
+      if (point && (!previous || Math.hypot(point.x - previous.x, point.y - previous.y) > .002)) {
+        state.routePointer.points.push(point);
+        renderRoute();
+      }
+      return;
+    }
     if (!state.pointers.has(event.pointerId)) return;
     state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (state.pinch && state.pointers.size === 2) {
@@ -939,6 +1029,21 @@ function bindEvents() {
     elements.viewport.style.cursor = state.pointer.moved ? "grabbing" : transitionAt(event.clientX, event.clientY) ? "pointer" : "grab";
   });
   elements.viewport.addEventListener("pointerup", (event) => {
+    if (event.pointerId === state.routePointer?.id) {
+      const { points } = state.routePointer;
+      state.routePointer = null;
+      if (points.length > 1) {
+        savePlannedRoutes();
+        state.isPlanningRoute = false;
+        updatePlayerControls();
+        announce("Planned route saved.");
+      } else {
+        delete state.plannedRoutes[state.mapId];
+        renderRoute();
+        announce("Draw a longer route to save it.");
+      }
+      return;
+    }
     state.pointers.delete(event.pointerId);
     if (state.pinch) {
       state.pinch = null;
@@ -954,7 +1059,18 @@ function bindEvents() {
     elements.viewport.classList.remove("is-dragging");
     if (!pointer.moved) activateTransition(event.clientX, event.clientY);
   });
-  elements.viewport.addEventListener("pointercancel", (event) => { state.pointers.delete(event.pointerId); state.pointer = null; state.pinch = null; elements.viewport.classList.remove("is-dragging"); });
+  elements.viewport.addEventListener("pointercancel", (event) => {
+    if (event.pointerId === state.routePointer?.id) {
+      delete state.plannedRoutes[state.mapId];
+      state.routePointer = null;
+      renderRoute();
+      return;
+    }
+    state.pointers.delete(event.pointerId);
+    state.pointer = null;
+    state.pinch = null;
+    elements.viewport.classList.remove("is-dragging");
+  });
   elements.playerMarker.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 && event.pointerType === "mouse") return;
     event.preventDefault();
@@ -1020,6 +1136,11 @@ function bindEvents() {
       state.isPlacingPlayer = false;
       updatePlayerControls();
       announce("Character placement cancelled.");
+    }
+    else if (state.isPlanningRoute) {
+      state.isPlanningRoute = false;
+      updatePlayerControls();
+      announce("Route planning cancelled.");
     }
     else if (state.mapId) showHome();
   });
