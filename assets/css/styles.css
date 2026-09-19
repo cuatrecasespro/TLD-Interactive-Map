@@ -162,6 +162,9 @@ dialog p { color: var(--muted); font-size: .88rem; line-height: 1.5; }
   .route-control { bottom: max(4.25rem, calc(3.5rem + env(safe-area-inset-bottom))); left: max(.75rem, env(safe-area-inset-left)); }
   .orientation-control { bottom: calc(max(4.25rem, calc(3.5rem + env(safe-area-inset-bottom))) + 3rem); left: max(.75rem, env(safe-area-inset-left)); }
   .sheet { bottom: max(4.7rem, calc(3.5rem + env(safe-area-inset-bottom))); width: calc(100vw - 1rem); max-height: min(35rem, calc(100dvh - 5.8rem)); border-radius: 16px; }
+  #regions-panel { height: min(35rem, calc(var(--app-height, 100dvh) - 5.8rem)); }
+  #regions-panel > :not(.region-results) { flex-shrink: 0; }
+  #region-search { font-size: 1rem; }
   #regions-panel.is-searching { top: max(.5rem, env(safe-area-inset-top)); bottom: auto; height: calc(var(--app-height, 100dvh) - 1rem); max-height: none; }
   #regions-panel.is-searching .sheet-heading { margin-bottom: .75rem; }
   #regions-panel.is-searching .world-region-button, #regions-panel.is-searching .region-divider { display: none; }

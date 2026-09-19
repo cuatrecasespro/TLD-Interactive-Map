@@ -286,6 +286,7 @@ function closeDifficulty() {
 }
 
 function closeRegions() {
+  if (elements.regions.contains(document.activeElement)) document.activeElement.blur();
   elements.regions.classList.remove("is-searching");
   elements.regions.hidden = true;
   elements.locationButton.setAttribute("aria-expanded", "false");
@@ -383,6 +384,7 @@ function applyTransform() {
 }
 
 function mapPointAt(clientX, clientY) {
+  if (!state.mapId || elements.image.hidden || !elements.viewport.classList.contains("is-ready")) return null;
   const imageRect = elements.image.getBoundingClientRect();
   if (!imageRect.width || !elements.image.clientWidth || !elements.image.clientHeight) return null;
   const angle = state.orientation * Math.PI / 180;
@@ -425,10 +427,11 @@ function updatePlayerControls() {
 }
 
 function renderRoute() {
-  const route = state.plannedRoutes[state.mapId];
+  const route = state.routePointer?.mapId === state.mapId ? state.routePointer.points : state.plannedRoutes[state.mapId];
   const imageRect = elements.image.getBoundingClientRect();
-  if (!route || !imageRect.width || !imageRect.height || elements.image.hidden) {
-    elements.routeOverlay.hidden = true;
+  if (!state.mapId || !route || !imageRect.width || !imageRect.height || elements.image.hidden) {
+    elements.routeOverlay.setAttribute("hidden", "");
+    elements.routeLine.removeAttribute("points");
     return;
   }
   const angle = state.orientation * Math.PI / 180;
@@ -440,7 +443,7 @@ function renderRoute() {
     const y = (point.y - .5) * elements.image.clientHeight * state.zoom;
     return `${centerX + x * Math.cos(angle) - y * Math.sin(angle)},${centerY + x * Math.sin(angle) + y * Math.cos(angle)}`;
   }).join(" "));
-  elements.routeOverlay.hidden = false;
+  elements.routeOverlay.removeAttribute("hidden");
 }
 
 function routePointAt(clientX, clientY) {
@@ -451,8 +454,10 @@ function routePointAt(clientX, clientY) {
 
 function toggleRoutePlanning() {
   if (!state.mapId) return;
+  state.routePointer = null;
   state.isPlanningRoute = !state.isPlanningRoute;
   state.isPlacingPlayer = false;
+  renderRoute();
   updatePlayerControls();
   announce(state.isPlanningRoute ? "Draw your planned route on the map." : "Route planning cancelled.");
 }
@@ -464,7 +469,7 @@ function clearRoute() {
   state.isPlanningRoute = false;
   savePlannedRoutes();
   elements.routeLine.removeAttribute("points");
-  elements.routeOverlay.hidden = true;
+  elements.routeOverlay.setAttribute("hidden", "");
   renderRoute();
   updatePlayerControls();
   announce("Planned route cleared.");
@@ -503,8 +508,11 @@ function placePlayerPosition(clientX, clientY, { persist = true } = {}) {
 }
 
 function togglePlayerPlacement() {
+  if (!state.mapId) return;
+  state.routePointer = null;
   state.isPlacingPlayer = !state.isPlacingPlayer;
   state.isPlanningRoute = false;
+  renderRoute();
   updatePlayerControls();
   announce(state.isPlacingPlayer ? "Choose a point on the map for your character." : "Character placement cancelled.");
 }
@@ -729,9 +737,23 @@ function preloadAdjacentMaps() {
   });
 }
 
-function showHome({ route = "push" } = {}) {
-  state.mapId = null;
+function resetGestures() {
+  state.routePointer = null;
+  state.playerPointer = null;
   state.playerDragPosition = null;
+  state.pointer = null;
+  state.pinch = null;
+  state.pointers.clear();
+  state.homePointer = null;
+  state.homePinch = null;
+  state.homePointers.clear();
+  elements.viewport.classList.remove("is-dragging");
+  elements.homeView.classList.remove("is-dragging");
+}
+
+function showHome({ route = "push" } = {}) {
+  resetGestures();
+  state.mapId = null;
   state.requestId += 1;
   hideTransitionMenu();
   closeRegions();
@@ -761,7 +783,8 @@ function loadImage(url, mapId) {
   elements.loading.hidden = false;
   elements.image.hidden = true;
   elements.playerMarker.hidden = true;
-  elements.routeOverlay.hidden = true;
+  elements.routeOverlay.setAttribute("hidden", "");
+  elements.routeLine.removeAttribute("points");
   elements.viewport.classList.remove("is-ready");
   elements.image.alt = `${labelFor(mapId)} map for ${difficultyLabel()} difficulty`;
   elements.image.onload = async () => {
@@ -794,8 +817,9 @@ function navigate(mapId, { route = "push" } = {}) {
     announce(`No ${difficultyLabel()} map is available for ${labelFor(mapId)}.`);
     return;
   }
+  resetGestures();
+  closeRegions();
   state.mapId = mapId;
-  state.playerDragPosition = null;
   saveLastView();
   closeMobileControls();
   hideTransitionMenu();
@@ -867,7 +891,7 @@ function bindEvents() {
   });
   elements.regionsClose.addEventListener("click", closeRegions);
   elements.regionSearch.addEventListener("focus", () => setRegionSearchActive(true));
-  elements.regionSearch.addEventListener("blur", () => setRegionSearchActive(false));
+  // Keep the search layout stable until the panel closes: blur precedes a result's click.
   elements.regionSearch.addEventListener("input", () => renderRegionList(elements.regionSearch.value));
   elements.install.addEventListener("click", openInstallDialog);
   elements.updateApp.addEventListener("click", () => {
@@ -892,18 +916,18 @@ function bindEvents() {
   elements.creditsClose.addEventListener("click", closeCredits);
   elements.difficultyClose.addEventListener("click", closeDifficulty);
   document.addEventListener("pointerdown", (event) => {
-    if (!elements.credits.hidden && !elements.credits.contains(event.target) && event.target !== elements.creditsButton) {
+    if (!elements.credits.hidden && !elements.credits.contains(event.target) && !elements.creditsButton.contains(event.target)) {
       closeCredits();
     }
-    if (!elements.difficultyPanel.hidden && !elements.difficultyPanel.contains(event.target) && event.target !== elements.difficultyButton) {
+    if (!elements.difficultyPanel.hidden && !elements.difficultyPanel.contains(event.target) && !elements.difficultyButton.contains(event.target)) {
       closeDifficulty();
     }
-    if (!elements.regions.hidden && !elements.regions.contains(event.target) && event.target !== elements.locationButton) {
+    if (!elements.regions.hidden && !elements.regions.contains(event.target) && !elements.locationButton.contains(event.target)) {
       closeRegions();
     }
     if (!elements.hotspotOptions.hidden && !elements.hotspotControl.contains(event.target)) closeHotspotOptions();
     if (!elements.transitionMenu.hidden && !elements.transitionMenu.contains(event.target)) hideTransitionMenu();
-    if (!elements.mobileControlsPanel.hidden && !elements.mobileControlsPanel.contains(event.target) && event.target !== elements.mobileControlsButton) closeMobileControls();
+    if (!elements.mobileControlsPanel.hidden && !elements.mobileControlsPanel.contains(event.target) && !elements.mobileControlsButton.contains(event.target)) closeMobileControls();
   });
   elements.homeView.addEventListener("wheel", (event) => {
     event.preventDefault();
@@ -970,15 +994,16 @@ function bindEvents() {
   elements.homeView.addEventListener("contextmenu", (event) => event.preventDefault());
   elements.viewport.addEventListener("wheel", (event) => { event.preventDefault(); setZoom(state.zoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), event.clientX, event.clientY); }, { passive: false });
   elements.viewport.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button") || elements.image.hidden || !elements.viewport.classList.contains("is-ready")) return;
     if (event.button !== 0 && event.pointerType === "mouse") return;
     if (state.isPlanningRoute) {
+      if (state.routePointer) return;
       const point = routePointAt(event.clientX, event.clientY);
       if (!point) return;
       event.preventDefault();
       hideTransitionMenu();
       elements.viewport.setPointerCapture(event.pointerId);
-      state.routePointer = { id: event.pointerId, points: [point] };
-      state.plannedRoutes[state.mapId] = state.routePointer.points;
+      state.routePointer = { id: event.pointerId, mapId: state.mapId, points: [point] };
       renderRoute();
       return;
     }
@@ -1034,15 +1059,16 @@ function bindEvents() {
   });
   elements.viewport.addEventListener("pointerup", (event) => {
     if (event.pointerId === state.routePointer?.id) {
-      const { points } = state.routePointer;
+      const { points, mapId } = state.routePointer;
       state.routePointer = null;
+      if (mapId !== state.mapId) return;
       if (points.length > 1) {
+        state.plannedRoutes[mapId] = points;
         savePlannedRoutes();
         state.isPlanningRoute = false;
         updatePlayerControls();
         announce("Planned route saved.");
       } else {
-        delete state.plannedRoutes[state.mapId];
         renderRoute();
         announce("Draw a longer route to save it.");
       }
@@ -1065,7 +1091,6 @@ function bindEvents() {
   });
   elements.viewport.addEventListener("pointercancel", (event) => {
     if (event.pointerId === state.routePointer?.id) {
-      delete state.plannedRoutes[state.mapId];
       state.routePointer = null;
       renderRoute();
       return;
@@ -1136,13 +1161,16 @@ function bindEvents() {
     else if (!elements.difficultyPanel.hidden) closeDifficulty();
     else if (!elements.credits.hidden) closeCredits();
     else if (!elements.hotspotOptions.hidden) closeHotspotOptions();
+    else if (!elements.mobileControlsPanel.hidden) closeMobileControls();
     else if (state.isPlacingPlayer) {
       state.isPlacingPlayer = false;
       updatePlayerControls();
       announce("Character placement cancelled.");
     }
     else if (state.isPlanningRoute) {
+      state.routePointer = null;
       state.isPlanningRoute = false;
+      renderRoute();
       updatePlayerControls();
       announce("Route planning cancelled.");
     }
